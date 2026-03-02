@@ -36,13 +36,11 @@ function renderTopBar(state, me) {
     const handInfo = document.getElementById('hand-info');
     const pointVal = document.getElementById('point-value-display');
     
-    handInfo.textContent = `Hand #${state.hand_number}`;
-    
     let stateLabel = '';
-    if (state.state === 'FINAL_TURNS') stateLabel = ' — FINAL TURNS';
+    if (state.state === 'FINAL_TURNS') stateLabel = ' — FINAL TURNS <span class="info-icon-inline" data-tip="final" title="What is this?">?</span>';
     else if (state.state === 'SCORING') stateLabel = ' — SCORING';
     
-    handInfo.textContent += stateLabel;
+    handInfo.innerHTML = `Hand #${state.hand_number}${stateLabel}`;
     pointVal.textContent = `${state.point_value}x pts`;
     
     document.getElementById('leave-game-btn').onclick = leaveGame;
@@ -159,7 +157,7 @@ function renderActionArea(state, me) {
     }
 
     // It's my turn
-    turnIndicator.textContent = 'Your Turn!';
+    turnIndicator.textContent = state.state === 'FINAL_TURNS' ? 'Final Turn!' : 'Your Turn!';
     turnIndicator.className = 'turn-indicator your-turn';
 
     // Check if all my cards are face-up (can only draw_replace)
@@ -171,7 +169,8 @@ function renderActionArea(state, me) {
         actionButtons.innerHTML = `
             <button class="btn btn-primary" onclick="drawCard()">
                 Draw Card
-            </button>`;
+            </button>
+            <span class="info-icon-inline" data-tip="draw" title="What is this?">?</span>`;
     } else if (actionPhase === 'drawn') {
         // Phase 2: Choose action
         if (allFaceUp) {
@@ -186,9 +185,11 @@ function renderActionArea(state, me) {
                 <button class="btn btn-secondary" id="choose-replace-btn" onclick="enterReplaceMode()">
                     Replace a Card
                 </button>
+                <span class="info-icon-inline" data-tip="replace" title="What is this?">?</span>
                 <button class="btn btn-secondary" id="choose-burn-btn" onclick="enterBurnMode()">
-                    Burn &amp; Reveal
-                </button>`;
+                    Burn & Reveal
+                </button>
+                <span class="info-icon-inline" data-tip="burn" title="What is this?">?</span>`;
         }
     } else if (actionPhase === 'select_replace') {
         actionButtons.innerHTML = `
@@ -350,7 +351,7 @@ function renderScoringOverlay(state, me) {
     const readyBtnDisabled = alreadyReady ? 'disabled' : '';
 
     content.innerHTML = `
-        <h2>Hand Complete</h2>
+        <h2>Hand Complete <span class="info-icon-inline" data-tip="scoring" title="Scoring info">?</span></h2>
         ${playersHTML}
         <div class="scoring-actions">
             <button class="${readyBtnClass}" onclick="signalNextHand()" ${readyBtnDisabled}>

@@ -1,0 +1,362 @@
+/* game-engine.js — Game table rendering and interaction logic */
+
+// ============================================================================
+// Game Table Renderer
+// ============================================================================
+function renderGameTable(state) {
+    if (!state) return;
+
+    const me = state.players.find(p => p.is_self);
+    const opponents = state.players.filter(p => !p.is_self);
+
+    // Top bar
+    renderTopBar(state, me);
+
+    // Opponents
+    renderOpponents(state, opponents);
+
+    // Center area
+    renderCenter(state, me);
+
+    // Player hand
+    renderPlayerHand(state, me);
+
+    // Scoring overlay
+    if (state.state === 'SCORING') {
+        renderScoringOverlay(state, me);
+    } else {
+        document.getElementById('scoring-overlay').classList.remove('active');
+    }
+}
+
+// ============================================================================
+// Top Bar
+// ============================================================================
+function renderTopBar(state, me) {
+    const handInfo = document.getElementById('hand-info');
+    const pointVal = document.getElementById('point-value-display');
+    
+    handInfo.textContent = `Hand #${state.hand_number}`;
+    
+    let stateLabel = '';
+    if (state.state === 'FINAL_TURNS') stateLabel = ' — FINAL TURNS';
+    else if (state.state === 'SCORING') stateLabel = ' — SCORING';
+    
+    handInfo.textContent += stateLabel;
+    pointVal.textContent = `${state.point_value}x pts`;
+    
+    document.getElementById('leave-game-btn').onclick = leaveGame;
+}
+
+// ============================================================================
+// Opponents
+// ============================================================================
+function renderOpponents(state, opponents) {
+    const area = document.getElementById('opponents-area');
+    
+    area.innerHTML = opponents.map(opp => {
+        const isActive = state.current_turn_seat === opp.seat && 
+                         state.state !== 'SCORING';
+        const activeClass = isActive ? 'active-turn' : '';
+        const buttonIcon = state.button_seat === opp.seat ? ' <span title="Button" style="color:var(--warning)">&#9679;</span>' : '';
+        const pts = opp.net_points || 0;
+        const ptsClass = pts > 0 ? 'pts-positive' : pts < 0 ? 'pts-negative' : 'pts-zero';
+        const ptsText = pts > 0 ? `+${pts}` : `${pts}`;
+        
+        const cardsHTML = opp.cards.map(c => {
+            if (c.face_up) {
+                return createCardHTML(c.suit, c.rank, true, 'mini');
+            }
+            return createCardHTML(null, null, false, 'mini');
+        }).join('');
+        
+        return `
+            <div class="opponent-panel ${activeClass}">
+                <div class="opponent-name">
+                    ${escapeHtml(opp.username)}${buttonIcon}
+                    <span class="player-pts ${ptsClass}">${ptsText}</span>
+                </div>
+                <div class="opponent-cards">${cardsHTML}</div>
+                ${opp.is_disqualified ? '<div style="color:var(--danger);font-size:var(--text-xs)">DISQUALIFIED</div>' : ''}
+            </div>`;
+    }).join('');
+}
+
+// ============================================================================
+// Center Area
+// ============================================================================
+function renderCenter(state, me) {
+    // Draw pile
+    const drawPile = document.getElementById('draw-pile');
+    const deckCount = state.deck_count;
+    
+    if (deckCount > 0) {
+        drawPile.innerHTML = `
+            <div class="draw-pile-cards">
+                ${deckCount > 2 ? '<div class="pile-card"><div class="card-back-pattern"></div></div>' : ''}
+                ${deckCount > 1 ? '<div class="pile-card"><div class="card-back-pattern"></div></div>' : ''}
+                <div class="pile-card"><div class="card-back-pattern"></div></div>
+            </div>
+            <span class="pile-count">${deckCount}</span>`;
+    } else {
+        drawPile.innerHTML = `
+            <div class="discard-area">Empty</div>`;
+    }
+
+    // Last drawn card / YOUR drawn card display
+    const lastDrawn = document.getElementById('last-drawn-card');
+    if (drawnCard && state.is_my_turn && actionPhase) {
+        // Show the player's drawn card prominently
+        const c = drawnCard;
+        lastDrawn.innerHTML = `
+            <div class="drawn-card-highlight">
+                <div class="drawn-label">You Drew</div>
+                ${createCardHTML(c.suit, c.rank, true, 'drawn')}
+            </div>`;
+    } else if (state.last_drawn_card) {
+        const c = state.last_drawn_card;
+        lastDrawn.innerHTML = `
+            <div class="discard-pile-display">
+                <div class="discard-label">Discard</div>
+                ${createCardHTML(c.suit, c.rank, true)}
+            </div>`;
+    } else {
+        lastDrawn.innerHTML = '<div class="discard-area"></div>';
+    }
+
+    // Last action text
+    const actionText = document.getElementById('last-action-text');
+    actionText.textContent = state.last_action || '';
+
+    // Action area
+    renderActionArea(state, me);
+}
+
+// ============================================================================
+// Action Area (turn buttons)
+// ============================================================================
+function renderActionArea(state, me) {
+    const area = document.getElementById('action-area');
+    const turnIndicator = document.getElementById('turn-indicator');
+    const actionButtons = document.getElementById('action-buttons');
+    
+    if (state.state === 'SCORING') {
+        turnIndicator.textContent = 'Hand complete!';
+        turnIndicator.className = 'turn-indicator';
+        actionButtons.innerHTML = '';
+        return;
+    }
+
+    const isMyTurn = state.is_my_turn;
+    const currentPlayer = state.players.find(p => p.seat === state.current_turn_seat);
+    const currentName = currentPlayer ? currentPlayer.username : '...';
+
+    if (!isMyTurn) {
+        turnIndicator.textContent = `Waiting for ${currentName}...`;
+        turnIndicator.className = 'turn-indicator';
+        actionButtons.innerHTML = '';
+        return;
+    }
+
+    // It's my turn
+    turnIndicator.textContent = 'Your Turn!';
+    turnIndicator.className = 'turn-indicator your-turn';
+
+    // Check if all my cards are face-up (can only draw_replace)
+    const allFaceUp = me.cards.every(c => c.face_up);
+    const hasFaceDown = me.cards.some(c => !c.face_up);
+
+    if (actionPhase === null) {
+        // Phase 1: Draw card
+        actionButtons.innerHTML = `
+            <button class="btn btn-primary" onclick="drawCard()">
+                Draw Card
+            </button>`;
+    } else if (actionPhase === 'drawn') {
+        // Phase 2: Choose action
+        if (allFaceUp) {
+            // Can only replace
+            actionButtons.innerHTML = `
+                <div style="color:var(--text-secondary);font-size:var(--text-sm);margin-bottom:var(--sp-2)">
+                    All cards face-up — select a card to replace
+                </div>`;
+            // Cards will be selectable
+        } else {
+            actionButtons.innerHTML = `
+                <button class="btn btn-secondary" id="choose-replace-btn" onclick="enterReplaceMode()">
+                    Replace a Card
+                </button>
+                <button class="btn btn-secondary" id="choose-burn-btn" onclick="enterBurnMode()">
+                    Burn &amp; Reveal
+                </button>`;
+        }
+    } else if (actionPhase === 'select_replace') {
+        actionButtons.innerHTML = `
+            <div style="color:var(--accent);font-size:var(--text-sm)">
+                Click a card in your hand to replace it
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="cancelAction()">Cancel</button>`;
+    } else if (actionPhase === 'select_reveal') {
+        actionButtons.innerHTML = `
+            <div style="color:var(--accent);font-size:var(--text-sm)">
+                Click a face-down card to reveal, or:
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="doBurnReveal()">
+                Just Burn (No Reveal)
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="cancelAction()">Cancel</button>`;
+    }
+}
+
+function enterReplaceMode() {
+    actionPhase = 'select_replace';
+    renderGame(gameState);
+}
+
+function enterBurnMode() {
+    actionPhase = 'select_reveal';
+    renderGame(gameState);
+}
+
+function cancelAction() {
+    actionPhase = null;
+    renderGame(gameState);
+}
+
+// ============================================================================
+// Player Hand
+// ============================================================================
+function renderPlayerHand(state, me) {
+    const area = document.getElementById('player-cards');
+    const label = document.getElementById('player-label');
+    
+    const buttonIcon = state.button_seat === me.seat ? ' <span style="color:var(--warning)" title="Button">&#9679;</span>' : '';
+    const myPts = me.net_points || 0;
+    const myPtsClass = myPts > 0 ? 'pts-positive' : myPts < 0 ? 'pts-negative' : 'pts-zero';
+    const myPtsText = myPts > 0 ? `+${myPts}` : `${myPts}`;
+    label.innerHTML = `${escapeHtml(me.username)}${buttonIcon} <span class="player-pts ${myPtsClass}">${myPtsText}</span>`;
+
+    const isMyTurn = state.is_my_turn;
+    const allFaceUp = me.cards.every(c => c.face_up);
+
+    area.innerHTML = me.cards.map((c, idx) => {
+        let selectable = false;
+        let clickHandler = '';
+
+        if (isMyTurn && state.state !== 'SCORING') {
+            if (actionPhase === 'drawn' && allFaceUp) {
+                // All face-up, must replace
+                selectable = true;
+                clickHandler = `onclick="doReplace(${idx})"`;
+            } else if (actionPhase === 'select_replace') {
+                selectable = true;
+                clickHandler = `onclick="doReplace(${idx})"`;
+            } else if (actionPhase === 'select_reveal' && !c.face_up) {
+                selectable = true;
+                clickHandler = `onclick="doBurnReveal(${idx})"`;
+            }
+        }
+
+        const selectableClass = selectable ? 'selectable' : '';
+
+        if (c.face_up) {
+            return `
+                <div class="card face-up suit-${c.suit} ${selectableClass}" ${clickHandler}>
+                    <div class="card-inner">
+                        <div class="card-front">
+                            <div class="card-rank-top">
+                                <span>${c.rank}</span>
+                                <span class="card-rank-suit">${suitSymbol(c.suit)}</span>
+                            </div>
+                            <div class="card-suit-center">${suitSymbol(c.suit)}</div>
+                            <div class="card-rank-bottom">
+                                <span>${c.rank}</span>
+                                <span class="card-rank-suit">${suitSymbol(c.suit)}</span>
+                            </div>
+                        </div>
+                        <div class="card-back">
+                            <div class="card-back-pattern"></div>
+                        </div>
+                    </div>
+                </div>`;
+        } else {
+            return `
+                <div class="card face-down ${selectableClass}" ${clickHandler}>
+                    <div class="card-inner">
+                        <div class="card-front"></div>
+                        <div class="card-back">
+                            <div class="card-back-pattern"></div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+    }).join('');
+}
+
+// ============================================================================
+// Scoring Overlay
+// ============================================================================
+function renderScoringOverlay(state, me) {
+    const overlay = document.getElementById('scoring-overlay');
+    const content = document.getElementById('scoring-content');
+
+    // Sort players by hand rank (best first)
+    const sorted = [...state.players].sort((a, b) => {
+        return (b.best_hand_rank || 0) - (a.best_hand_rank || 0);
+    });
+
+    // Determine winner(s)
+    const topRank = sorted[0].best_hand_rank;
+    const winners = sorted.filter(p => p.best_hand_rank === topRank);
+
+    let playersHTML = sorted.map(p => {
+        const isWinner = p.best_hand_rank === topRank && !p.is_disqualified;
+        const winnerClass = isWinner ? 'winner' : '';
+        
+        // Find score data
+        const scoreEntry = state.scores.find(s => s.user_id === p.user_id);
+        let pointChange = 0;
+        if (scoreEntry) {
+            pointChange = scoreEntry.net;
+        }
+        
+        const changeClass = pointChange > 0 ? 'positive' : pointChange < 0 ? 'negative' : '';
+        const changeText = pointChange > 0 ? `+${pointChange}` : pointChange < 0 ? `${pointChange}` : '0';
+        
+        // Show all cards now
+        const cardsHTML = p.cards.map(c => {
+            if (c.face_up && c.suit) {
+                return createCardHTML(c.suit, c.rank, true, 'mini');
+            }
+            return createCardHTML(null, null, false, 'mini');
+        }).join('');
+
+        return `
+            <div class="scoring-player ${winnerClass}">
+                <div>
+                    <div class="player-hand-name">
+                        ${isWinner ? '&#127942; ' : ''}${escapeHtml(p.username)}
+                    </div>
+                    <div class="player-hand-type">${p.best_hand_name || 'N/A'}</div>
+                    <div style="display:flex;gap:2px;margin-top:4px">${cardsHTML}</div>
+                </div>
+                <div class="point-change ${changeClass}">${changeText}</div>
+            </div>`;
+    }).join('');
+
+    const alreadyReady = state.ready_for_next && state.ready_for_next.includes(me.user_id);
+    const readyBtnText = alreadyReady ? 'Waiting for others...' : 'Ready for Next Hand';
+    const readyBtnClass = alreadyReady ? 'btn btn-secondary' : 'btn btn-primary';
+    const readyBtnDisabled = alreadyReady ? 'disabled' : '';
+
+    content.innerHTML = `
+        <h2>Hand Complete</h2>
+        ${playersHTML}
+        <div class="scoring-actions">
+            <button class="${readyBtnClass}" onclick="signalNextHand()" ${readyBtnDisabled}>
+                ${readyBtnText}
+            </button>
+        </div>`;
+
+    overlay.classList.add('active');
+}

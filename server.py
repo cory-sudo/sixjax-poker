@@ -1114,6 +1114,95 @@ def api_next_hand():
 
     return jsonify({"ok": True, "all_ready": ready >= total})
 
+@app.route('/api/rooms/end-game', methods=['POST'])
+def api_end_game():
+    db = get_db()
+    uid = require_auth()
+    if uid is None:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Find the user's active room
+    rp = db.execute("""
+        SELECT rp.room_id FROM room_players rp
+        JOIN rooms r ON rp.room_id = r.id
+        WHERE rp.user_id=? AND r.status='in_progress'
+        ORDER BY rp.joined_at DESC LIMIT 1
+    """, (uid,)).fetchone()
+
+    if rp:
+        db.execute("UPDATE rooms SET status='finished' WHERE id=?", (rp['room_id'],))
+        db.commit()
+
+    return jsonify({"ok": True})
+
+
+@app.route('/api/change-password', methods=['POST'])
+def api_change_password():
+    db = get_db()
+    uid = require_auth()
+    if uid is None:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    body = request.get_json(force=True, silent=True) or {}
+    current_password = body.get('current_password', '')
+    new_password = body.get('new_password', '')
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Both current and new password are required"}), 400
+
+    if len(new_password) < 3:
+        return jsonify({"error": "New password must be at least 3 characters"}), 400
+
+    user = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not user or user['password_hash'] != hash_password(current_password):
+        return jsonify({"error": "Current password is incorrect"}), 400
+
+    db.execute("UPDATE users SET password_hash=? WHERE id=?", (hash_password(new_password), uid))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route('/api/delete-account', methods=['DELETE'])
+def api_delete_account():
+    db = get_db()
+    uid = require_auth()
+    if uid is None:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    body = request.get_json(force=True, silent=True) or {}
+    password = body.get('password', '')
+
+    if not password:
+        return jsonify({"error": "Password is required to delete account"}), 400
+
+    user = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not user or user['password_hash'] != hash_password(password):
+        return jsonify({"error": "Incorrect password"}), 400
+
+    # Remove from room_players
+    db.execute("DELETE FROM room_players WHERE user_id=?", (uid,))
+
+    # Delete rooms hosted by user that have no other players
+    hosted_rooms = db.execute("SELECT id FROM rooms WHERE host_user_id=?", (uid,)).fetchall()
+    for room in hosted_rooms:
+        remaining = db.execute("SELECT COUNT(*) as c FROM room_players WHERE room_id=?",
+                               (room['id'],)).fetchone()['c']
+        if remaining == 0:
+            db.execute("DELETE FROM rooms WHERE id=?", (room['id'],))
+        else:
+            # Transfer host to another player
+            new_host = db.execute("SELECT user_id FROM room_players WHERE room_id=? LIMIT 1",
+                                  (room['id'],)).fetchone()
+            if new_host:
+                db.execute("UPDATE rooms SET host_user_id=? WHERE id=?",
+                           (new_host['user_id'], room['id']))
+
+    # Delete the user
+    db.execute("DELETE FROM users WHERE id=?", (uid,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
 @app.route('/api/stats')
 def api_stats():
     db = get_db()

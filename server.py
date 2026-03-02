@@ -511,6 +511,14 @@ def sanitize_game_state(db, hand_id, user_id):
 
     room = db.execute("SELECT * FROM rooms WHERE id=?", (hand['room_id'],)).fetchone()
 
+    # Get current room players to detect who has left
+    current_room_players = set(
+        r['user_id'] for r in db.execute(
+            "SELECT user_id FROM room_players WHERE room_id=?",
+            (hand['room_id'],)
+        ).fetchall()
+    )
+
     user_ids = [ph['user_id'] for ph in all_ph]
     users = {}
     user_points = {}
@@ -539,6 +547,7 @@ def sanitize_game_state(db, hand_id, user_id):
             'cards': sanitized_cards,
             'is_self': ph['user_id'] == user_id,
             'is_disqualified': bool(ph['is_disqualified']),
+            'has_left': ph['user_id'] not in current_room_players,
             'best_hand_name': ph['best_hand_name'],
             'best_hand_rank': ph['best_hand_rank'],
             'bonus_value': ph['bonus_value'],
@@ -799,7 +808,119 @@ def api_leave_room():
     uid = require_auth()
     if uid is None:
         return jsonify({"error": "Unauthorized"}), 401
+
+    # Handle leaving a waiting room
     leave_current_room(db, uid)
+
+    # Handle leaving an in-progress game
+    active_rp = db.execute("""
+        SELECT rp.room_id, rp.seat_position FROM room_players rp
+        JOIN rooms r ON rp.room_id = r.id
+        WHERE rp.user_id=? AND r.status='in_progress'
+    """, (uid,)).fetchone()
+
+    if active_rp:
+        room_id = active_rp['room_id']
+        leaving_seat = active_rp['seat_position']
+
+        # Get the latest hand
+        hand = db.execute("""
+            SELECT * FROM game_hands WHERE room_id=?
+            ORDER BY hand_number DESC LIMIT 1
+        """, (room_id,)).fetchone()
+
+        if hand and hand['state'] in ('PLAYING', 'FINAL_TURNS'):
+            # Mark the leaving player as disqualified in the current hand
+            db.execute("""
+                UPDATE player_hands SET is_disqualified=1
+                WHERE game_hand_id=? AND user_id=?
+            """, (hand['id'], uid))
+
+            # Remove from room_players
+            db.execute("DELETE FROM room_players WHERE room_id=? AND user_id=?",
+                      (room_id, uid))
+
+            # Check how many non-disqualified players remain
+            remaining = db.execute("""
+                SELECT COUNT(*) as cnt FROM player_hands
+                WHERE game_hand_id=? AND is_disqualified=0
+            """, (hand['id'],)).fetchone()['cnt']
+
+            if remaining <= 1:
+                # Only one player left — finish the hand immediately
+                finish_hand(db, hand['id'])
+            elif hand['current_turn_seat'] == leaving_seat:
+                # It was the leaving player's turn — advance to next player
+                # Clear any pending drawn card
+                db.execute("""
+                    UPDATE game_hands SET pending_drawn_card=NULL WHERE id=?
+                """, (hand['id'],))
+                all_ph = db.execute("""
+                    SELECT seat_position FROM player_hands
+                    WHERE game_hand_id=? AND is_disqualified=0
+                    ORDER BY seat_position
+                """, (hand['id'],)).fetchall()
+                active_seats = [p['seat_position'] for p in all_ph]
+
+                if hand['state'] == 'FINAL_TURNS':
+                    # Remove leaving seat from final turn queue if present
+                    fq = json.loads(hand['final_turn_queue']) if hand['final_turn_queue'] else []
+                    fq = [s for s in fq if s != leaving_seat]
+                    if len(fq) == 0:
+                        finish_hand(db, hand['id'])
+                    else:
+                        next_seat = fq.pop(0)
+                        db.execute("""
+                            UPDATE game_hands SET current_turn_seat=?, final_turn_queue=?
+                            WHERE id=?
+                        """, (next_seat, json.dumps(fq), hand['id']))
+                else:
+                    # PLAYING state — find the next active seat in turn order
+                    num_players_total = db.execute("""
+                        SELECT COUNT(*) as cnt FROM player_hands WHERE game_hand_id=?
+                    """, (hand['id'],)).fetchone()['cnt']
+                    turn_order = get_turn_order(hand['button_seat'], num_players_total)
+                    # Find next non-disqualified seat
+                    if leaving_seat in turn_order:
+                        idx = turn_order.index(leaving_seat)
+                        for i in range(1, len(turn_order)):
+                            candidate = turn_order[(idx + i) % len(turn_order)]
+                            if candidate in active_seats:
+                                db.execute("""
+                                    UPDATE game_hands SET current_turn_seat=? WHERE id=?
+                                """, (candidate, hand['id']))
+                                break
+                    elif active_seats:
+                        db.execute("""
+                            UPDATE game_hands SET current_turn_seat=? WHERE id=?
+                        """, (active_seats[0], hand['id']))
+
+            db.commit()
+
+            # If only one player left in room_players, set room to finished
+            remaining_room = db.execute("""
+                SELECT COUNT(*) as cnt FROM room_players WHERE room_id=?
+            """, (room_id,)).fetchone()['cnt']
+            if remaining_room <= 1:
+                db.execute("UPDATE rooms SET status='finished' WHERE id=?", (room_id,))
+                db.commit()
+
+        elif hand and hand['state'] == 'SCORING':
+            # Game is in scoring — just remove and finish
+            db.execute("DELETE FROM room_players WHERE room_id=? AND user_id=?",
+                      (room_id, uid))
+            remaining_room = db.execute("""
+                SELECT COUNT(*) as cnt FROM room_players WHERE room_id=?
+            """, (room_id,)).fetchone()['cnt']
+            if remaining_room <= 1:
+                db.execute("UPDATE rooms SET status='finished' WHERE id=?", (room_id,))
+            db.commit()
+        else:
+            # No active hand or unknown state — just remove
+            db.execute("DELETE FROM room_players WHERE room_id=? AND user_id=?",
+                      (room_id, uid))
+            db.commit()
+
     return jsonify({"ok": True})
 
 @app.route('/api/rooms/ready', methods=['POST'])

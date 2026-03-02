@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="base.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="cards.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9824;</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠</text></svg>">
 </head>
 <body>
 
@@ -24,10 +24,10 @@
     <div class="login-container">
         <div class="login-brand">
             <div class="suits">
-                <span>&#9824;</span>
-                <span class="red">&#9829;</span>
-                <span>&#9827;</span>
-                <span class="red">&#9830;</span>
+                <span>♠</span>
+                <span class="red">♥</span>
+                <span>♣</span>
+                <span class="red">♦</span>
             </div>
             <div class="main-title">SixJax</div>
             <div class="subtitle">Jax Players Club</div>
@@ -78,13 +78,14 @@
                        style="width:120px;text-transform:uppercase" maxlength="5">
                 <button id="join-code-btn" class="btn btn-secondary btn-sm">Join</button>
             </div>
+            <button id="how-to-play-btn" class="btn btn-secondary">How to Play</button>
         </div>
 
         <div>
             <h2 class="section-title">Open Rooms</h2>
             <div id="room-list" class="room-list">
                 <div class="empty-state">
-                    <div class="icon">&#9824;</div>
+                    <div class="icon">♠</div>
                     <p>Loading rooms...</p>
                 </div>
             </div>
@@ -94,7 +95,7 @@
             <h2 class="section-title">Leaderboard</h2>
             <div id="leaderboard" class="leaderboard">
                 <div class="empty-state">
-                    <div class="icon">&#9819;</div>
+                    <div class="icon">♛</div>
                     <p>No games played yet</p>
                 </div>
             </div>
@@ -142,7 +143,12 @@
         <div class="game-top-bar">
             <span id="hand-info" class="hand-info">Hand #1</span>
             <span id="point-value-display" class="point-value">1x pts</span>
-            <button id="leave-game-btn" class="btn btn-sm btn-secondary">Leave</button>
+            <div class="game-top-bar-right">
+                <button id="game-help-btn" class="info-icon-btn" aria-label="Help" title="How to Play">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/><text x="10" y="14.5" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">?</text></svg>
+                </button>
+                <button id="leave-game-btn" class="btn btn-sm btn-secondary">Leave</button>
+            </div>
         </div>
 
         <!-- Opponents -->
@@ -185,6 +191,168 @@
 </div>
 
 <!-- ============================================================ -->
+<!-- HOW TO PLAY MODAL -->
+<!-- ============================================================ -->
+<div id="how-to-play-modal" class="modal-overlay">
+    <div class="modal help-modal">
+        <div class="help-modal-header">
+            <h2>How to Play SixJax</h2>
+            <button id="close-help-btn" class="help-close-btn" aria-label="Close">&times;</button>
+        </div>
+        <div class="help-tabs">
+            <button class="help-tab active" data-help="overview">Overview</button>
+            <button class="help-tab" data-help="gameplay">Gameplay</button>
+            <button class="help-tab" data-help="scoring">Scoring</button>
+            <button class="help-tab" data-help="hands">Hand Rankings</button>
+        </div>
+        <div class="help-content">
+            <!-- Overview -->
+            <div class="help-section active" id="help-overview">
+                <h3>Welcome to SixJax Poker</h3>
+                <p>SixJax is a 6-card, point-based poker game for 2–6 players with <strong>no wagering</strong>. Build the best 5-card poker hand from your 6 cards to win points from your opponents.</p>
+                <div class="help-highlight">
+                    <div class="help-highlight-icon">♠</div>
+                    <div>
+                        <strong>The Goal</strong><br>
+                        Win hands to earn points. The player with the best 5-card poker hand wins the round.
+                    </div>
+                </div>
+                <div class="help-highlight">
+                    <div class="help-highlight-icon">🃏</div>
+                    <div>
+                        <strong>6 Cards, Not 5</strong><br>
+                        Each player has 6 cards. Your best 5-card combination is automatically selected.
+                    </div>
+                </div>
+                <div class="help-highlight">
+                    <div class="help-highlight-icon">🔄</div>
+                    <div>
+                        <strong>Draw &amp; Decide</strong><br>
+                        On your turn, draw a card and choose: replace one of your cards, or burn it and reveal a face-down card.
+                    </div>
+                </div>
+            </div>
+            <!-- Gameplay -->
+            <div class="help-section" id="help-gameplay">
+                <h3>How a Hand Works</h3>
+                <div class="help-step">
+                    <span class="help-step-num">1</span>
+                    <div>
+                        <strong>Deal</strong><br>
+                        Each player gets 6 cards — some face-up, some face-down. You can only see your own face-down cards.
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="help-step-num">2</span>
+                    <div>
+                        <strong>Draw Phase</strong><br>
+                        On your turn, draw a card from the deck. You'll see it before deciding what to do.
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="help-step-num">3</span>
+                    <div>
+                        <strong>Choose Your Action</strong><br>
+                        <em>Replace:</em> Swap the drawn card with any card in your hand (replaced card goes to discard).<br>
+                        <em>Burn &amp; Reveal:</em> Discard the drawn card and optionally flip a face-down card face-up.
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="help-step-num">4</span>
+                    <div>
+                        <strong>Final Turns</strong><br>
+                        When the deck runs out, each player gets one final turn. Then all cards are revealed.
+                    </div>
+                </div>
+                <div class="help-step">
+                    <span class="help-step-num">5</span>
+                    <div>
+                        <strong>Scoring</strong><br>
+                        The player with the best hand wins points from each opponent. See the Scoring tab for details.
+                    </div>
+                </div>
+            </div>
+            <!-- Scoring -->
+            <div class="help-section" id="help-scoring">
+                <h3>How Scoring Works</h3>
+                <p>The winner earns points from <strong>each</strong> losing player, not a flat amount.</p>
+                <div class="help-scoring-box">
+                    <div class="help-scoring-title">Base Points</div>
+                    <p>The winner receives <strong>3 points from each loser</strong>.<br>
+                    Example: In a 4-player game, the winner gets 3 &times; 3 = <strong>9 points</strong>.</p>
+                </div>
+                <div class="help-scoring-box">
+                    <div class="help-scoring-title">Bonus Points</div>
+                    <p>The winner also earns bonus points <strong>per opponent</strong> based on hand quality difference.</p>
+                    <p>For each opponent:<br>
+                    <code>bonus = max(0, winner_bonus − opponent_bonus)</code></p>
+                </div>
+                <div class="help-bonus-table">
+                    <div class="help-bonus-header">
+                        <span>Hand</span>
+                        <span>Bonus Value</span>
+                    </div>
+                    <div class="help-bonus-row">
+                        <span>High Card through Three of a Kind</span>
+                        <span>+0</span>
+                    </div>
+                    <div class="help-bonus-row">
+                        <span>Straight</span>
+                        <span>+1</span>
+                    </div>
+                    <div class="help-bonus-row">
+                        <span>Flush</span>
+                        <span>+1</span>
+                    </div>
+                    <div class="help-bonus-row">
+                        <span>Full House</span>
+                        <span>+3</span>
+                    </div>
+                    <div class="help-bonus-row">
+                        <span>Four of a Kind</span>
+                        <span>+5</span>
+                    </div>
+                    <div class="help-bonus-row">
+                        <span>Straight Flush</span>
+                        <span>+7</span>
+                    </div>
+                    <div class="help-bonus-row">
+                        <span>Royal Flush</span>
+                        <span>+9</span>
+                    </div>
+                </div>
+                <div class="help-scoring-box">
+                    <div class="help-scoring-title">Point Multiplier</div>
+                    <p>The room's point value multiplies all points. A 2x room doubles everything.</p>
+                </div>
+            </div>
+            <!-- Hand Rankings -->
+            <div class="help-section" id="help-hands">
+                <h3>Poker Hand Rankings</h3>
+                <p>Standard poker rankings, best to worst:</p>
+                <div class="help-hand-list">
+                    <div class="help-hand-item"><span class="help-hand-rank">1</span><strong>Royal Flush</strong><span class="help-hand-desc">A K Q J 10, all same suit</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">2</span><strong>Straight Flush</strong><span class="help-hand-desc">5 consecutive cards, same suit</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">3</span><strong>Four of a Kind</strong><span class="help-hand-desc">4 cards of the same rank</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">4</span><strong>Full House</strong><span class="help-hand-desc">3 of a kind + a pair</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">5</span><strong>Flush</strong><span class="help-hand-desc">5 cards of the same suit</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">6</span><strong>Straight</strong><span class="help-hand-desc">5 consecutive cards, any suit</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">7</span><strong>Three of a Kind</strong><span class="help-hand-desc">3 cards of the same rank</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">8</span><strong>Two Pair</strong><span class="help-hand-desc">Two different pairs</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">9</span><strong>One Pair</strong><span class="help-hand-desc">2 cards of the same rank</span></div>
+                    <div class="help-hand-item"><span class="help-hand-rank">10</span><strong>High Card</strong><span class="help-hand-desc">No matching cards</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- GAME INFO TOOLTIP -->
+<!-- ============================================================ -->
+<div id="game-info-tooltip" class="game-info-tooltip"></div>
+
+<!-- ============================================================ -->
 <!-- CREATE ROOM MODAL -->
 <!-- ============================================================ -->
 <div id="create-room-modal" class="modal-overlay">
@@ -219,7 +387,7 @@
     </div>
 </div>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 <script src="game-engine.js"></script>
 </body>
 </html>

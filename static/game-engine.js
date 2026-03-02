@@ -103,10 +103,19 @@ function renderCenter(state, me) {
             <div class="discard-area">Empty</div>`;
     }
 
-    // Last drawn card / YOUR drawn card display
+    // Last drawn card / YOUR drawn card display with animation
     const lastDrawn = document.getElementById('last-drawn-card');
-    if (drawnCard && state.is_my_turn && actionPhase) {
-        // Show the player's drawn card prominently
+    if (showDrawAnimation && drawAnimationCard) {
+        // Show fly-in animation card (large, then shrinks)
+        const c = drawAnimationCard;
+        lastDrawn.innerHTML = `
+            <div class="draw-animation-container">
+                <div class="draw-animation-card">
+                    ${createCardHTML(c.suit, c.rank, true, 'drawn')}
+                </div>
+            </div>`;
+    } else if (drawnCard && state.is_my_turn && actionPhase) {
+        // Show the player's drawn card normally (post-animation)
         const c = drawnCard;
         lastDrawn.innerHTML = `
             <div class="drawn-card-highlight">
@@ -159,56 +168,70 @@ function renderActionArea(state, me) {
     }
 
     // It's my turn
-    turnIndicator.textContent = state.state === 'FINAL_TURNS' ? 'Final Turn!' : 'Your Turn!';
+    const isFinalTurn = state.state === 'FINAL_TURNS';
+    turnIndicator.textContent = isFinalTurn ? 'Final Turn!' : 'Your Turn!';
     turnIndicator.className = 'turn-indicator your-turn';
 
-    // Check if all my cards are face-up (can only draw_replace)
     const allFaceUp = me.cards.every(c => c.face_up);
     const hasFaceDown = me.cards.some(c => !c.face_up);
 
-    if (actionPhase === null) {
-        // Phase 1: Draw card
-        actionButtons.innerHTML = `
-            <button class="btn btn-primary" onclick="drawCard()">
-                Draw Card
-            </button>
-            <span class="info-icon-inline" data-tip="draw" title="What is this?">?</span>`;
-    } else if (actionPhase === 'drawn') {
-        // Phase 2: Choose action
+    // During animation or before card is drawn, show nothing
+    if (showDrawAnimation || actionPhase === null) {
+        actionButtons.innerHTML = autoDrawInProgress 
+            ? '<div style="color:var(--text-secondary);font-size:var(--text-sm)">Drawing card...</div>' 
+            : '';
+        return;
+    }
+
+    // Card has been drawn — show the 3 action buttons
+    if (actionPhase === 'drawn') {
         if (allFaceUp) {
-            // Can only replace
+            // All face-up: can only Replace (skip and reveal don't make sense)
             actionButtons.innerHTML = `
-                <div style="color:var(--text-secondary);font-size:var(--text-sm);margin-bottom:var(--sp-2)">
-                    All cards face-up — select a card to replace
+                <div class="action-btn-group">
+                    <button class="action-btn action-btn-replace" onclick="enterReplaceMode()">
+                        <span class="action-btn-icon">⇄</span>
+                        <span class="action-btn-label">Replace</span>
+                    </button>
+                    <button class="action-btn action-btn-skip" onclick="doSkip()">
+                        <span class="action-btn-icon">✕</span>
+                        <span class="action-btn-label">Skip</span>
+                    </button>
                 </div>`;
-            // Cards will be selectable
         } else {
             actionButtons.innerHTML = `
-                <button class="btn btn-secondary" id="choose-replace-btn" onclick="enterReplaceMode()">
-                    Replace a Card
-                </button>
-                <span class="info-icon-inline" data-tip="replace" title="What is this?">?</span>
-                <button class="btn btn-secondary" id="choose-burn-btn" onclick="enterBurnMode()">
-                    Burn & Reveal
-                </button>
-                <span class="info-icon-inline" data-tip="burn" title="What is this?">?</span>`;
+                <div class="action-btn-group">
+                    <button class="action-btn action-btn-skip" onclick="doSkip()">
+                        <span class="action-btn-icon">✕</span>
+                        <span class="action-btn-label">Skip</span>
+                    </button>
+                    <button class="action-btn action-btn-replace" onclick="enterReplaceMode()">
+                        <span class="action-btn-icon">⇄</span>
+                        <span class="action-btn-label">Replace</span>
+                    </button>
+                    <button class="action-btn action-btn-reveal" onclick="enterRevealMode()">
+                        <span class="action-btn-icon">👁</span>
+                        <span class="action-btn-label">Reveal</span>
+                    </button>
+                </div>`;
         }
     } else if (actionPhase === 'select_replace') {
         actionButtons.innerHTML = `
             <div style="color:var(--accent);font-size:var(--text-sm)">
-                Click a card in your hand to replace it
+                Tap a card in your hand to replace
             </div>
             <button class="btn btn-sm btn-secondary" onclick="cancelAction()">Cancel</button>`;
     } else if (actionPhase === 'select_reveal') {
         actionButtons.innerHTML = `
             <div style="color:var(--accent);font-size:var(--text-sm)">
-                Click a face-down card to reveal, or:
+                Tap a face-down card to reveal
             </div>
-            <button class="btn btn-primary btn-sm" onclick="doBurnReveal()">
-                Just Burn (No Reveal)
-            </button>
             <button class="btn btn-sm btn-secondary" onclick="cancelAction()">Cancel</button>`;
     }
+}
+
+function doSkip() {
+    doBurnReveal(); // calls with no reveal index = just burn
 }
 
 function enterReplaceMode() {
@@ -216,13 +239,19 @@ function enterReplaceMode() {
     renderGame(gameState);
 }
 
+function enterRevealMode() {
+    actionPhase = 'select_reveal';
+    renderGame(gameState);
+}
+
+// Keep enterBurnMode as alias for compatibility
 function enterBurnMode() {
     actionPhase = 'select_reveal';
     renderGame(gameState);
 }
 
 function cancelAction() {
-    actionPhase = null;
+    actionPhase = 'drawn';
     renderGame(gameState);
 }
 

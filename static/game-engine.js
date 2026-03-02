@@ -26,6 +26,8 @@ function renderGameTable(state) {
         renderScoringOverlay(state, me);
     } else {
         document.getElementById('scoring-overlay').classList.remove('active');
+        // Clear auto-start timer if we've moved away from SCORING
+        clearAutoStartTimer();
     }
 }
 
@@ -37,8 +39,8 @@ function renderTopBar(state, me) {
     const pointVal = document.getElementById('point-value-display');
     
     let stateLabel = '';
-    if (state.state === 'FINAL_TURNS') stateLabel = ' — FINAL TURNS <span class="info-icon-inline" data-tip="final" title="What is this?">?</span>';
-    else if (state.state === 'SCORING') stateLabel = ' — SCORING';
+    if (state.state === 'FINAL_TURNS') stateLabel = ' \u2014 FINAL TURNS <span class="info-icon-inline" data-tip="final" title="What is this?">?</span>';
+    else if (state.state === 'SCORING') stateLabel = ' \u2014 SCORING';
     
     handInfo.innerHTML = `Hand #${state.hand_number}${stateLabel}`;
     pointVal.textContent = `${state.point_value}x pts`;
@@ -177,7 +179,7 @@ function renderActionArea(state, me) {
             // Can only replace
             actionButtons.innerHTML = `
                 <div style="color:var(--text-secondary);font-size:var(--text-sm);margin-bottom:var(--sp-2)">
-                    All cards face-up — select a card to replace
+                    All cards face-up \u2014 select a card to replace
                 </div>`;
             // Cards will be selectable
         } else {
@@ -350,14 +352,60 @@ function renderScoringOverlay(state, me) {
     const readyBtnClass = alreadyReady ? 'btn btn-secondary' : 'btn btn-primary';
     const readyBtnDisabled = alreadyReady ? 'disabled' : '';
 
+    // Auto-start countdown timer logic
+    // Only start timer if: not already ready, not already running
+    if (!alreadyReady && !autoStartTimerRunning) {
+        autoStartTimerRunning = true;
+        autoStartCountdown = 10;
+        autoStartTimer = setInterval(() => {
+            autoStartCountdown--;
+            // Update countdown text in DOM without full re-render
+            const countdownEl = document.getElementById('auto-start-countdown');
+            if (countdownEl) {
+                countdownEl.textContent = `Auto-ready in ${autoStartCountdown}s...`;
+            }
+            if (autoStartCountdown <= 0) {
+                clearAutoStartTimer();
+                signalNextHand();
+            }
+        }, 1000);
+    }
+
+    // If already ready, ensure timer is cleared
+    if (alreadyReady) {
+        clearAutoStartTimer();
+    }
+
+    const countdownText = (!alreadyReady && autoStartTimerRunning)
+        ? `Auto-ready in ${autoStartCountdown}s...`
+        : '';
+
     content.innerHTML = `
         <h2>Hand Complete <span class="info-icon-inline" data-tip="scoring" title="Scoring info">?</span></h2>
         ${playersHTML}
         <div class="scoring-actions">
-            <button class="${readyBtnClass}" onclick="signalNextHand()" ${readyBtnDisabled}>
+            <button class="${readyBtnClass}" onclick="onReadyForNextHand()" ${readyBtnDisabled}>
                 ${readyBtnText}
+            </button>
+            ${countdownText ? `<div id="auto-start-countdown" class="auto-start-countdown">${countdownText}</div>` : '<div id="auto-start-countdown" class="auto-start-countdown" style="display:none"></div>'}
+            <button class="btn btn-sm btn-secondary" onclick="returnToLobby()" style="margin-top:var(--sp-2)">
+                Return to Lobby
             </button>
         </div>`;
 
     overlay.classList.add('active');
+}
+
+function onReadyForNextHand() {
+    clearAutoStartTimer();
+    // Update UI immediately to show waiting state
+    const readyBtn = document.querySelector('#scoring-content .scoring-actions .btn-primary');
+    if (readyBtn) {
+        readyBtn.textContent = 'Waiting for others...';
+        readyBtn.className = 'btn btn-secondary';
+        readyBtn.disabled = true;
+    }
+    const countdownEl = document.getElementById('auto-start-countdown');
+    if (countdownEl) countdownEl.style.display = 'none';
+    signalNextHand();
 }

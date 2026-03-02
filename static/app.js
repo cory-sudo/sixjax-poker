@@ -413,6 +413,10 @@ let actionPhase = null; // null, 'drawn', 'select_replace', 'select_reveal'
 let drawnCard = null;
 let animatingReveal = false;
 let actionInFlight = false; // Prevent double-clicks and race conditions
+let autoDrawInProgress = false;  // prevents double auto-draw
+let autoDrawDoneForTurn = false; // tracks if we already auto-drew this turn
+let showDrawAnimation = false;   // controls the fly-in animation
+let drawAnimationCard = null;    // card data for animation
 
 function initGameScreen() {
     if (!authToken) { navigate('login'); return; }
@@ -422,6 +426,10 @@ function initGameScreen() {
     gameState = null;
     animatingReveal = false;
     actionInFlight = false;
+    autoDrawInProgress = false;
+    autoDrawDoneForTurn = false;
+    showDrawAnimation = false;
+    drawAnimationCard = null;
     loadGameState();
     startPolling(loadGameState, 1500);
 }
@@ -442,7 +450,6 @@ async function loadGameState() {
 }
 
 function renderGame(state) {
-    // Delegate to game-engine.js
     if (typeof renderGameTable === 'function') {
         // Restore drawn card state from server if we have a pending card
         if (state && state.pending_drawn_card && state.is_my_turn) {
@@ -450,16 +457,62 @@ function renderGame(state) {
             if (actionPhase === null) {
                 actionPhase = 'drawn';
             }
+            autoDrawDoneForTurn = true; // already have a card
         } else if (state && !state.is_my_turn) {
             // Not our turn — reset action state
             actionPhase = null;
             drawnCard = null;
+            autoDrawDoneForTurn = false;
+            autoDrawInProgress = false;
+            showDrawAnimation = false;
+            drawAnimationCard = null;
         }
+        
         renderGameTable(state);
+        
+        // Auto-draw: if it's my turn, no card drawn yet, not already drawing, game is active
+        if (state && state.is_my_turn && !drawnCard && !autoDrawInProgress && !autoDrawDoneForTurn 
+            && actionPhase === null && (state.state === 'PLAYING' || state.state === 'FINAL_TURNS')) {
+            autoDrawCard();
+        }
     }
 }
 
 // Game actions
+async function autoDrawCard() {
+    if (autoDrawInProgress || actionInFlight) return;
+    autoDrawInProgress = true;
+    autoDrawDoneForTurn = true;
+    try {
+        const result = await api('POST', '/draw');
+        if (result.deck_empty) {
+            showToast('Deck is empty — hand ending', 'info');
+            autoDrawInProgress = false;
+            await loadGameState();
+            return;
+        }
+        // Trigger fly-in animation
+        drawAnimationCard = result.drawn_card;
+        showDrawAnimation = true;
+        drawnCard = result.drawn_card;
+        actionPhase = 'drawn';
+        autoDrawInProgress = false;
+        renderGame(gameState);
+        
+        // After animation completes (1200ms), switch to normal drawn state
+        setTimeout(() => {
+            showDrawAnimation = false;
+            drawAnimationCard = null;
+            if (gameState) renderGame(gameState);
+        }, 1200);
+    } catch (err) {
+        autoDrawInProgress = false;
+        autoDrawDoneForTurn = false;
+        showToast(err.message, 'error');
+        await loadGameState();
+    }
+}
+
 async function drawCard() {
     if (actionInFlight) return;
     actionInFlight = true;

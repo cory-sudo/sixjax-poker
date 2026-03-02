@@ -58,7 +58,6 @@ function renderOpponents(state, opponents) {
         const isActive = state.current_turn_seat === opp.seat && 
                          state.state !== 'SCORING';
         const activeClass = isActive ? 'active-turn' : '';
-        const buttonIcon = state.button_seat === opp.seat ? ' <span title="Button" style="color:var(--warning)">&#9679;</span>' : '';
         const pts = opp.net_points || 0;
         const ptsClass = pts > 0 ? 'pts-positive' : pts < 0 ? 'pts-negative' : 'pts-zero';
         const ptsText = pts > 0 ? `+${pts}` : `${pts}`;
@@ -73,11 +72,11 @@ function renderOpponents(state, opponents) {
         return `
             <div class="opponent-panel ${activeClass}">
                 <div class="opponent-name">
-                    ${escapeHtml(opp.username)}${buttonIcon}
+                    ${escapeHtml(opp.username)}
                     <span class="player-pts ${ptsClass}">${ptsText}</span>
                 </div>
                 <div class="opponent-cards">${cardsHTML}</div>
-                ${opp.is_disqualified ? '<div style="color:var(--danger);font-size:var(--text-xs)">DISQUALIFIED</div>' : ''}
+                ${opp.has_left ? '<div style="color:var(--danger);font-size:var(--text-xs)">LEFT</div>' : opp.is_disqualified ? '<div style="color:var(--danger);font-size:var(--text-xs)">DISQUALIFIED</div>' : ''}
             </div>`;
     }).join('');
 }
@@ -189,30 +188,15 @@ function renderActionArea(state, me) {
             // All face-up: can only Replace (skip and reveal don't make sense)
             actionButtons.innerHTML = `
                 <div class="action-btn-group">
-                    <button class="action-btn action-btn-replace" onclick="enterReplaceMode()">
-                        <span class="action-btn-icon">⇄</span>
-                        <span class="action-btn-label">Replace</span>
-                    </button>
-                    <button class="action-btn action-btn-skip" onclick="doSkip()">
-                        <span class="action-btn-icon">✕</span>
-                        <span class="action-btn-label">Skip</span>
-                    </button>
+                    <button class="action-btn action-btn-replace" onclick="enterReplaceMode()">Replace</button>
+                    <button class="action-btn action-btn-skip" onclick="doSkip()">Skip</button>
                 </div>`;
         } else {
             actionButtons.innerHTML = `
                 <div class="action-btn-group">
-                    <button class="action-btn action-btn-skip" onclick="doSkip()">
-                        <span class="action-btn-icon">✕</span>
-                        <span class="action-btn-label">Skip</span>
-                    </button>
-                    <button class="action-btn action-btn-replace" onclick="enterReplaceMode()">
-                        <span class="action-btn-icon">⇄</span>
-                        <span class="action-btn-label">Replace</span>
-                    </button>
-                    <button class="action-btn action-btn-reveal" onclick="enterRevealMode()">
-                        <span class="action-btn-icon">👁</span>
-                        <span class="action-btn-label">Reveal</span>
-                    </button>
+                    <button class="action-btn action-btn-skip" onclick="doSkip()">Skip</button>
+                    <button class="action-btn action-btn-replace" onclick="enterReplaceMode()">Replace</button>
+                    <button class="action-btn action-btn-reveal" onclick="enterRevealMode()">Reveal</button>
                 </div>`;
         }
     } else if (actionPhase === 'select_replace') {

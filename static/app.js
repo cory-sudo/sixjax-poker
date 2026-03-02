@@ -232,7 +232,7 @@ async function loadRoomList() {
         if (rooms.length === 0) {
             list.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">&#9824;</div>
+                    <div class="icon">♠</div>
                     <p>No open rooms. Create one!</p>
                 </div>`;
             return;
@@ -537,6 +537,112 @@ function leaveGame() {
 }
 
 // ============================================================================
+// Help Modal
+// ============================================================================
+function initHelpModal() {
+    const modal = document.getElementById('how-to-play-modal');
+    const closeBtn = document.getElementById('close-help-btn');
+    const tabs = modal.querySelectorAll('.help-tab');
+
+    // Open from lobby
+    document.getElementById('how-to-play-btn').onclick = () => openHelpModal();
+
+    // Open from in-game ? button
+    document.getElementById('game-help-btn').onclick = () => openHelpModal();
+
+    // Close
+    closeBtn.onclick = () => closeHelpModal();
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeHelpModal();
+    });
+
+    // Tab switching
+    tabs.forEach(tab => {
+        tab.onclick = () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            modal.querySelectorAll('.help-section').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById('help-' + tab.dataset.help);
+            if (target) target.classList.add('active');
+        };
+    });
+}
+
+function openHelpModal(tab) {
+    const modal = document.getElementById('how-to-play-modal');
+    modal.classList.add('active');
+    if (tab) {
+        const tabs = modal.querySelectorAll('.help-tab');
+        tabs.forEach(t => {
+            t.classList.toggle('active', t.dataset.help === tab);
+        });
+        modal.querySelectorAll('.help-section').forEach(s => s.classList.remove('active'));
+        const target = document.getElementById('help-' + tab);
+        if (target) target.classList.add('active');
+    }
+}
+
+function closeHelpModal() {
+    document.getElementById('how-to-play-modal').classList.remove('active');
+}
+
+// ============================================================================
+// In-Game Info Tooltips
+// ============================================================================
+const TOOLTIPS = {
+    draw: '<strong>Draw Phase</strong>Draw a card from the deck. You\'ll see it before choosing what to do with it.',
+    replace: '<strong>Replace a Card</strong>Swap your drawn card with any card in your hand. The replaced card goes to the discard pile.',
+    burn: '<strong>Burn &amp; Reveal</strong>Discard the drawn card. You can also flip one of your face-down cards face-up.',
+    scoring: '<strong>Scoring</strong>Winner gets 3 base points from each loser, plus bonus points based on hand quality difference.',
+    final: '<strong>Final Turns</strong>The deck is empty. Each player gets one last turn before all cards are revealed.'
+};
+
+let tooltipTimeout = null;
+
+function showInfoTooltip(key, anchorEl) {
+    const tooltip = document.getElementById('game-info-tooltip');
+    tooltip.innerHTML = TOOLTIPS[key] || '';
+    
+    // Position near the anchor element
+    const rect = anchorEl.getBoundingClientRect();
+    const tooltipWidth = 260;
+    let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+    let top = rect.bottom + 8;
+    
+    // Keep in viewport
+    if (left < 8) left = 8;
+    if (left + tooltipWidth > window.innerWidth - 8) left = window.innerWidth - tooltipWidth - 8;
+    if (top + 100 > window.innerHeight) top = rect.top - 8 - 80;
+    
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    tooltip.classList.add('active');
+    
+    clearTimeout(tooltipTimeout);
+    tooltipTimeout = setTimeout(() => {
+        tooltip.classList.remove('active');
+    }, 3500);
+}
+
+function hideInfoTooltip() {
+    clearTimeout(tooltipTimeout);
+    document.getElementById('game-info-tooltip').classList.remove('active');
+}
+
+// Delegate info icon clicks
+document.addEventListener('click', (e) => {
+    const infoIcon = e.target.closest('.info-icon-inline');
+    if (infoIcon) {
+        e.stopPropagation();
+        const key = infoIcon.dataset.tip;
+        if (key) showInfoTooltip(key, infoIcon);
+        return;
+    }
+    // Clicking elsewhere hides tooltip
+    hideInfoTooltip();
+});
+
+// ============================================================================
 // Utilities
 // ============================================================================
 function escapeHtml(str) {
@@ -546,7 +652,7 @@ function escapeHtml(str) {
 }
 
 function suitSymbol(suit) {
-    const m = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660' };
+    const m = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
     return m[suit] || '';
 }
 
@@ -592,4 +698,7 @@ function createCardHTML(suit, rank, faceUp, sizeClass = '') {
 // ============================================================================
 // Init
 // ============================================================================
-document.addEventListener('DOMContentLoaded', initRouter);
+document.addEventListener('DOMContentLoaded', () => {
+    initHelpModal();
+    initRouter();
+});

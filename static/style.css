@@ -1571,26 +1571,26 @@ select:focus {
 
 /* Skip button — red */
 .action-btn-skip {
-    background: #dc3545;
+    background: #a33;
 }
 .action-btn-skip:hover {
-    background: #c82333;
+    background: #b83a3a;
 }
 
 /* Replace button — green */
 .action-btn-replace {
-    background: #28a745;
+    background: #2a7a42;
 }
 .action-btn-replace:hover {
-    background: #218838;
+    background: #339650;
 }
 
 /* Reveal button — blue */
 .action-btn-reveal {
-    background: #007bff;
+    background: #2a5fa8;
 }
 .action-btn-reveal:hover {
-    background: #0069d9;
+    background: #3570c0;
 }
 
 /* ===== RESPONSIVE ===== */

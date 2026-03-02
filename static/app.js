@@ -249,7 +249,7 @@ async function loadRoomList() {
         if (rooms.length === 0) {
             list.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">&#9824;</div>
+                    <div class="icon">♠</div>
                     <p>No open rooms. Create one!</p>
                 </div>`;
             return;
@@ -782,7 +782,7 @@ function escapeHtml(str) {
 }
 
 function suitSymbol(suit) {
-    const m = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660' };
+    const m = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
     return m[suit] || '';
 }
 

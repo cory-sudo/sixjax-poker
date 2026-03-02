@@ -1503,6 +1503,108 @@ select:focus {
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 
+/* ===== DRAW ANIMATION ===== */
+.draw-animation-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.draw-animation-card {
+    animation: cardFlyIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cardFlyIn {
+    0% {
+        transform: scale(0.3) translateY(-60px);
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    40% {
+        transform: scale(1.8) translateY(0);
+    }
+    60% {
+        transform: scale(1.8) translateY(0);
+    }
+    100% {
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ===== ACTION BUTTON GROUP ===== */
+.action-btn-group {
+    display: flex;
+    gap: var(--sp-3);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-1);
+    padding: var(--sp-3) var(--sp-5);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    color: var(--text-primary);
+    font-weight: 600;
+    transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    min-width: 80px;
+    cursor: pointer;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.action-btn:active {
+    transform: scale(0.95);
+}
+
+.action-btn-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.action-btn-label {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* Skip button */
+.action-btn-skip {
+    border-color: rgba(255,255,255,0.1);
+}
+.action-btn-skip:hover {
+    border-color: var(--text-muted);
+    background: var(--bg-elevated);
+}
+
+/* Replace button */
+.action-btn-replace {
+    border-color: rgba(0, 212, 170, 0.3);
+}
+.action-btn-replace:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+
+/* Reveal button */
+.action-btn-reveal {
+    border-color: rgba(255, 179, 71, 0.3);
+}
+.action-btn-reveal:hover {
+    border-color: var(--warning);
+    background: rgba(255, 179, 71, 0.1);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 480px) {
   .app-container {

@@ -39,8 +39,8 @@ function renderTopBar(state, me) {
     const pointVal = document.getElementById('point-value-display');
     
     let stateLabel = '';
-    if (state.state === 'FINAL_TURNS') stateLabel = ' \u2014 FINAL TURNS <span class="info-icon-inline" data-tip="final" title="What is this?">?</span>';
-    else if (state.state === 'SCORING') stateLabel = ' \u2014 SCORING';
+    if (state.state === 'FINAL_TURNS') stateLabel = ' — FINAL TURNS <span class="info-icon-inline" data-tip="final" title="What is this?">?</span>';
+    else if (state.state === 'SCORING') stateLabel = ' — SCORING';
     
     handInfo.innerHTML = `Hand #${state.hand_number}${stateLabel}`;
     pointVal.textContent = `${state.point_value}x pts`;
@@ -179,7 +179,7 @@ function renderActionArea(state, me) {
             // Can only replace
             actionButtons.innerHTML = `
                 <div style="color:var(--text-secondary);font-size:var(--text-sm);margin-bottom:var(--sp-2)">
-                    All cards face-up \u2014 select a card to replace
+                    All cards face-up — select a card to replace
                 </div>`;
             // Cards will be selectable
         } else {

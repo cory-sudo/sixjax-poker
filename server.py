@@ -19,18 +19,30 @@ def handle_exception(e):
     logger.error(f"Unhandled exception: {e}", exc_info=True)
     return jsonify({"error": "Internal server error"}), 500
 
-# Use /tmp on Railway if the app dir isn't writable, otherwise use app dir
-_app_dir = os.path.dirname(os.path.abspath(__file__))
-_db_candidate = os.path.join(_app_dir, 'data.db')
-try:
-    # Test if we can write to app dir
-    _test_file = os.path.join(_app_dir, '.write_test')
-    with open(_test_file, 'w') as f:
-        f.write('ok')
-    os.remove(_test_file)
-    DB_PATH = _db_candidate
-except OSError:
-    DB_PATH = '/tmp/data.db'
+# ---------------------------------------------------------------------------
+# Database Path — uses Railway Volume for persistence across deploys
+# ---------------------------------------------------------------------------
+# Railway Volumes provide persistent storage that survives redeploys.
+# When a volume is attached, RAILWAY_VOLUME_MOUNT_PATH is set automatically.
+# Priority: 1) Railway Volume  2) App directory  3) /tmp (fallback)
+_volume_mount = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '')
+if _volume_mount:
+    # Persistent volume is attached — use it
+    os.makedirs(_volume_mount, exist_ok=True)
+    DB_PATH = os.path.join(_volume_mount, 'data.db')
+    logger.info(f"Using Railway Volume for DB: {DB_PATH}")
+else:
+    _app_dir = os.path.dirname(os.path.abspath(__file__))
+    _db_candidate = os.path.join(_app_dir, 'data.db')
+    try:
+        _test_file = os.path.join(_app_dir, '.write_test')
+        with open(_test_file, 'w') as f:
+            f.write('ok')
+        os.remove(_test_file)
+        DB_PATH = _db_candidate
+    except OSError:
+        DB_PATH = '/tmp/data.db'
+    logger.info(f"No Railway Volume detected — using: {DB_PATH} (data will NOT persist across deploys)")
 
 logger.info(f"Database path: {DB_PATH}")
 

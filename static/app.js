@@ -219,6 +219,11 @@ async function loadUserInfo() {
         currentUser = { id: data.user_id, username: data.username };
         document.getElementById('header-username').textContent = data.username;
         document.getElementById('header-points').textContent = `${data.net_points >= 0 ? '+' : ''}${data.net_points} pts`;
+        const ptsEl = document.getElementById('header-points');
+        ptsEl.classList.remove('pts-positive', 'pts-negative', 'pts-zero');
+        if (data.net_points > 0) ptsEl.classList.add('pts-positive');
+        else if (data.net_points < 0) ptsEl.classList.add('pts-negative');
+        else ptsEl.classList.add('pts-zero');
     } catch (err) {
         // ignore
     }

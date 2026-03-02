@@ -11,6 +11,20 @@ let currentUser = null;
 let pollingInterval = null;
 let currentScreen = null;
 
+// Auto-start timer (managed in game-engine.js, cleared here)
+let autoStartTimer = null;
+let autoStartTimerRunning = false;
+let autoStartCountdown = 10;
+
+function clearAutoStartTimer() {
+    if (autoStartTimer) {
+        clearInterval(autoStartTimer);
+        autoStartTimer = null;
+    }
+    autoStartTimerRunning = false;
+    autoStartCountdown = 10;
+}
+
 // ============================================================================
 // API Client
 // ============================================================================
@@ -69,6 +83,7 @@ function showToast(msg, type = 'info') {
 // ============================================================================
 function navigate(screen) {
     stopPolling();
+    clearAutoStartTimer();
     currentScreen = screen;
     window.location.hash = screen;
 
@@ -206,11 +221,8 @@ function initLobbyScreen() {
         }
     };
 
-    document.getElementById('logout-btn').onclick = () => {
-        authToken = null;
-        currentUser = null;
-        navigate('login');
-    };
+    // Settings gear button opens settings modal
+    document.getElementById('settings-btn').onclick = () => openSettings();
 }
 
 async function loadUserInfo() {
@@ -237,7 +249,7 @@ async function loadRoomList() {
         if (rooms.length === 0) {
             list.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">♠</div>
+                    <div class="icon">&#9824;</div>
                     <p>No open rooms. Create one!</p>
                 </div>`;
             return;
@@ -404,6 +416,7 @@ let actionInFlight = false; // Prevent double-clicks and race conditions
 
 function initGameScreen() {
     if (!authToken) { navigate('login'); return; }
+    clearAutoStartTimer();
     actionPhase = null;
     drawnCard = null;
     gameState = null;
@@ -537,8 +550,120 @@ function showBurnedCard(card) {
 }
 
 function leaveGame() {
+    clearAutoStartTimer();
     api('POST', '/rooms/leave').catch(() => {});
     navigate('lobby');
+}
+
+async function returnToLobby() {
+    clearAutoStartTimer();
+    try {
+        await api('POST', '/rooms/leave');
+    } catch (e) {
+        // ignore
+    }
+    navigate('lobby');
+}
+
+// ============================================================================
+// Settings Modal
+// ============================================================================
+function initSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    const closeBtn = document.getElementById('close-settings-btn');
+
+    closeBtn.onclick = () => closeSettings();
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeSettings();
+    });
+
+    // Change password form
+    document.getElementById('change-password-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById('change-pw-error');
+        errorEl.textContent = '';
+        const currentPw = document.getElementById('settings-current-pw').value;
+        const newPw = document.getElementById('settings-new-pw').value;
+        const confirmPw = document.getElementById('settings-confirm-pw').value;
+
+        if (!currentPw || !newPw || !confirmPw) {
+            errorEl.textContent = 'All fields are required.';
+            return;
+        }
+        if (newPw !== confirmPw) {
+            errorEl.textContent = 'New passwords do not match.';
+            return;
+        }
+        if (newPw.length < 3) {
+            errorEl.textContent = 'New password must be at least 3 characters.';
+            return;
+        }
+
+        try {
+            await api('POST', '/change-password', { current_password: currentPw, new_password: newPw });
+            document.getElementById('settings-current-pw').value = '';
+            document.getElementById('settings-new-pw').value = '';
+            document.getElementById('settings-confirm-pw').value = '';
+            showToast('Password updated successfully!', 'success');
+        } catch (err) {
+            errorEl.textContent = err.message;
+        }
+    };
+
+    // Log out
+    document.getElementById('settings-logout-btn').onclick = () => {
+        closeSettings();
+        authToken = null;
+        currentUser = null;
+        navigate('login');
+    };
+
+    // Delete account flow
+    document.getElementById('delete-account-btn').onclick = () => {
+        document.getElementById('delete-account-btn').style.display = 'none';
+        document.getElementById('delete-account-confirm').style.display = 'block';
+        document.getElementById('settings-delete-pw').value = '';
+        document.getElementById('delete-account-error').textContent = '';
+    };
+
+    document.getElementById('delete-account-cancel-btn').onclick = () => {
+        document.getElementById('delete-account-btn').style.display = '';
+        document.getElementById('delete-account-confirm').style.display = 'none';
+    };
+
+    document.getElementById('delete-account-confirm-btn').onclick = async () => {
+        const errorEl = document.getElementById('delete-account-error');
+        errorEl.textContent = '';
+        const pw = document.getElementById('settings-delete-pw').value;
+        if (!pw) {
+            errorEl.textContent = 'Please enter your password.';
+            return;
+        }
+        try {
+            await api('DELETE', '/delete-account', { password: pw });
+            closeSettings();
+            authToken = null;
+            currentUser = null;
+            showToast('Account deleted.', 'info');
+            navigate('login');
+        } catch (err) {
+            errorEl.textContent = err.message;
+        }
+    };
+}
+
+function openSettings() {
+    // Reset delete-account state when opening
+    const confirmEl = document.getElementById('delete-account-confirm');
+    const btnEl = document.getElementById('delete-account-btn');
+    if (confirmEl) confirmEl.style.display = 'none';
+    if (btnEl) btnEl.style.display = '';
+    document.getElementById('change-pw-error').textContent = '';
+    document.getElementById('settings-modal').classList.add('active');
+}
+
+function closeSettings() {
+    document.getElementById('settings-modal').classList.remove('active');
 }
 
 // ============================================================================
@@ -657,7 +782,7 @@ function escapeHtml(str) {
 }
 
 function suitSymbol(suit) {
-    const m = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+    const m = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660' };
     return m[suit] || '';
 }
 
@@ -705,5 +830,6 @@ function createCardHTML(suit, rank, faceUp, sizeClass = '') {
 // ============================================================================
 document.addEventListener('DOMContentLoaded', () => {
     initHelpModal();
+    initSettingsModal();
     initRouter();
 });

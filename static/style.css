@@ -266,8 +266,19 @@ select:focus {
 }
 
 .user-points {
-  color: var(--accent);
   font-weight: 600;
+}
+
+.user-points.pts-positive {
+  color: var(--accent);
+}
+
+.user-points.pts-negative {
+  color: var(--danger);
+}
+
+.user-points.pts-zero {
+  color: var(--text-muted);
 }
 
 /* ===== LOGIN SCREEN ===== */

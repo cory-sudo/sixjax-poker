@@ -135,6 +135,14 @@ def init_db():
         user_id INTEGER,
         UNIQUE(room_id, user_id)
     );
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        username TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     """)
     try:
         db.execute("ALTER TABLE game_hands ADD COLUMN pending_drawn_card TEXT")
@@ -1355,6 +1363,81 @@ def api_delete_account():
     db.execute("DELETE FROM users WHERE id=?", (uid,))
     db.commit()
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Chat
+# ---------------------------------------------------------------------------
+@app.route('/api/chat', methods=['POST'])
+def api_send_chat():
+    db = get_db()
+    uid = require_auth()
+    if uid is None:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    body = request.get_json(force=True, silent=True) or {}
+    message = body.get('message', '').strip()
+    if not message:
+        return jsonify({"error": "Empty message"}), 400
+    if len(message) > 200:
+        return jsonify({"error": "Message too long (200 char max)"}), 400
+
+    # Find the player's active room
+    rp = db.execute("""
+        SELECT rp.room_id FROM room_players rp
+        JOIN rooms r ON rp.room_id = r.id
+        WHERE rp.user_id=? AND r.status='in_progress'
+        ORDER BY rp.joined_at DESC LIMIT 1
+    """, (uid,)).fetchone()
+    if not rp:
+        return jsonify({"error": "Not in an active game"}), 400
+
+    user = db.execute("SELECT username FROM users WHERE id=?", (uid,)).fetchone()
+    username = user['username'] if user else 'Unknown'
+
+    db.execute("""
+        INSERT INTO chat_messages (room_id, user_id, username, message)
+        VALUES (?, ?, ?, ?)
+    """, (rp['room_id'], uid, username, message))
+    db.commit()
+    return jsonify({"ok": True}), 201
+
+
+@app.route('/api/chat')
+def api_get_chat():
+    db = get_db()
+    uid = require_auth()
+    if uid is None:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Find the player's active room
+    rp = db.execute("""
+        SELECT rp.room_id FROM room_players rp
+        JOIN rooms r ON rp.room_id = r.id
+        WHERE rp.user_id=? AND r.status='in_progress'
+        ORDER BY rp.joined_at DESC LIMIT 1
+    """, (uid,)).fetchone()
+    if not rp:
+        return jsonify([])  # No active game, return empty
+
+    # Optional: only return messages newer than a given ID
+    since_id = request.args.get('since', 0, type=int)
+
+    rows = db.execute("""
+        SELECT id, user_id, username, message, created_at
+        FROM chat_messages
+        WHERE room_id=? AND id>?
+        ORDER BY id ASC
+        LIMIT 50
+    """, (rp['room_id'], since_id)).fetchall()
+
+    return jsonify([{
+        'id': r['id'],
+        'user_id': r['user_id'],
+        'username': r['username'],
+        'message': r['message'],
+        'created_at': r['created_at']
+    } for r in rows])
 
 
 @app.route('/api/stats')

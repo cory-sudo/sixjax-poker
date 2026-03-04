@@ -521,11 +521,26 @@ def sanitize_game_state(db, hand_id, user_id):
 
     user_ids = [ph['user_id'] for ph in all_ph]
     users = {}
-    user_points = {}
+    # Calculate per-room session points (not lifetime)
+    room_points = {}
     for uid in user_ids:
-        u = db.execute("SELECT username, total_points_won, total_points_lost FROM users WHERE id=?", (uid,)).fetchone()
+        u = db.execute("SELECT username FROM users WHERE id=?", (uid,)).fetchone()
         users[uid] = u['username'] if u else 'Unknown'
-        user_points[uid] = (u['total_points_won'] - u['total_points_lost']) if u else 0
+        # Sum points won in this room across all hands
+        won = db.execute("""
+            SELECT COALESCE(SUM(s.total_points), 0) as total
+            FROM scores s
+            JOIN game_hands gh ON s.game_hand_id = gh.id
+            WHERE gh.room_id = ? AND s.winner_id = ?
+        """, (hand['room_id'], uid)).fetchone()['total']
+        # Sum points lost in this room across all hands
+        lost = db.execute("""
+            SELECT COALESCE(SUM(s.total_points), 0) as total
+            FROM scores s
+            JOIN game_hands gh ON s.game_hand_id = gh.id
+            WHERE gh.room_id = ? AND s.loser_id = ?
+        """, (hand['room_id'], uid)).fetchone()['total']
+        room_points[uid] = won - lost
 
     players = []
     for ph in all_ph:
@@ -551,7 +566,7 @@ def sanitize_game_state(db, hand_id, user_id):
             'best_hand_name': ph['best_hand_name'],
             'best_hand_rank': ph['best_hand_rank'],
             'bonus_value': ph['bonus_value'],
-            'net_points': user_points[ph['user_id']]
+            'net_points': room_points[ph['user_id']]
         })
 
     deck = json.loads(hand['deck']) if hand['deck'] else []

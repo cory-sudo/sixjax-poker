@@ -58,6 +58,7 @@ function renderOpponents(state, opponents) {
         const isActive = state.current_turn_seat === opp.seat && 
                          state.state !== 'SCORING';
         const activeClass = isActive ? 'active-turn' : '';
+        const buttonIcon = state.button_seat === opp.seat ? ' <span title="Button" style="color:var(--warning)">&#9679;</span>' : '';
         const pts = opp.net_points || 0;
         const ptsClass = pts > 0 ? 'pts-positive' : pts < 0 ? 'pts-negative' : 'pts-zero';
         const ptsText = pts > 0 ? `+${pts}` : `${pts}`;
@@ -72,7 +73,7 @@ function renderOpponents(state, opponents) {
         return `
             <div class="opponent-panel ${activeClass}">
                 <div class="opponent-name">
-                    ${escapeHtml(opp.username)}
+                    ${escapeHtml(opp.username)}${buttonIcon}
                     <span class="player-pts ${ptsClass}">${ptsText}</span>
                 </div>
                 <div class="opponent-cards">${cardsHTML}</div>
@@ -326,15 +327,16 @@ function renderScoringOverlay(state, me) {
     const winners = sorted.filter(p => p.best_hand_rank === topRank);
 
     let playersHTML = sorted.map(p => {
-        const isWinner = p.best_hand_rank === topRank && !p.is_disqualified;
-        const winnerClass = isWinner ? 'winner' : '';
-        
         // Find score data
         const scoreEntry = state.scores.find(s => s.user_id === p.user_id);
         let pointChange = 0;
         if (scoreEntry) {
             pointChange = scoreEntry.net;
         }
+        
+        // Winner = gained points this round (not just best hand rank)
+        const isWinner = pointChange > 0;
+        const winnerClass = isWinner ? 'winner' : '';
         
         const changeClass = pointChange > 0 ? 'positive' : pointChange < 0 ? 'negative' : '';
         const changeText = pointChange > 0 ? `+${pointChange}` : pointChange < 0 ? `${pointChange}` : '0';

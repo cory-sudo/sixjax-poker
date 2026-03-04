@@ -115,11 +115,10 @@ function renderCenter(state, me) {
                 </div>
             </div>`;
     } else if (drawnCard && state.is_my_turn && actionPhase) {
-        // Show the player's drawn card normally (post-animation)
+        // Show the player's drawn card (larger, with glow pulse — no label)
         const c = drawnCard;
         lastDrawn.innerHTML = `
             <div class="drawn-card-highlight">
-                <div class="drawn-label">You Drew</div>
                 ${createCardHTML(c.suit, c.rank, true, 'drawn')}
             </div>`;
     } else if (state.last_drawn_card) {
@@ -281,15 +280,8 @@ function renderPlayerHand(state, me) {
                 <div class="card face-up suit-${c.suit} ${selectableClass}" ${clickHandler}>
                     <div class="card-inner">
                         <div class="card-front">
-                            <div class="card-rank-top">
-                                <span>${c.rank}</span>
-                                <span class="card-rank-suit">${suitSymbol(c.suit)}</span>
-                            </div>
-                            <div class="card-suit-center">${suitSymbol(c.suit)}</div>
-                            <div class="card-rank-bottom">
-                                <span>${c.rank}</span>
-                                <span class="card-rank-suit">${suitSymbol(c.suit)}</span>
-                            </div>
+                            <div class="card-rank-top">${c.rank}</div>
+                            <div class="card-suit-bottom">${suitSymbol(c.suit)}</div>
                         </div>
                         <div class="card-back">
                             <div class="card-back-pattern"></div>
@@ -297,8 +289,9 @@ function renderPlayerHand(state, me) {
                     </div>
                 </div>`;
         } else {
+            const glowClass = (actionPhase === 'select_reveal' && selectable) ? 'reveal-glow' : '';
             return `
-                <div class="card face-down ${selectableClass}" ${clickHandler}>
+                <div class="card face-down ${selectableClass} ${glowClass}" ${clickHandler}>
                     <div class="card-inner">
                         <div class="card-front"></div>
                         <div class="card-back">
@@ -308,6 +301,23 @@ function renderPlayerHand(state, me) {
                 </div>`;
         }
     }).join('');
+
+    // Hand rank display (Fix 5)
+    let handRankEl = document.getElementById('hand-rank-display');
+    if (!handRankEl) {
+        handRankEl = document.createElement('div');
+        handRankEl.id = 'hand-rank-display';
+        handRankEl.className = 'hand-rank-display';
+        area.parentNode.insertBefore(handRankEl, area.nextSibling);
+    }
+    // Show hand rank from server during SCORING, or compute client-side during play
+    if (state.state === 'SCORING' && me.best_hand_name) {
+        handRankEl.textContent = me.best_hand_name;
+    } else {
+        const faceUpCards = me.cards.filter(c => c.face_up && c.suit && c.rank);
+        const handName = getBestHandName(faceUpCards);
+        handRankEl.textContent = handName || '';
+    }
 }
 
 // ============================================================================

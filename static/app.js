@@ -409,6 +409,7 @@ document.addEventListener('click', (e) => {
 // Game Screen  
 // ============================================================================
 let gameState = null;
+let lastHandNumber = null; // track hand number to detect new hands
 let actionPhase = null; // null, 'drawn', 'select_replace', 'select_reveal'
 let drawnCard = null;
 let animatingReveal = false;
@@ -424,6 +425,7 @@ function initGameScreen() {
     actionPhase = null;
     drawnCard = null;
     gameState = null;
+    lastHandNumber = null;
     animatingReveal = false;
     actionInFlight = false;
     autoDrawInProgress = false;
@@ -451,6 +453,22 @@ async function loadGameState() {
 
 function renderGame(state) {
     if (typeof renderGameTable === 'function') {
+        // Detect new hand — reset all draw/action state
+        if (state && state.hand_number !== lastHandNumber) {
+            if (lastHandNumber !== null) {
+                // Hand changed — full reset
+                actionPhase = null;
+                drawnCard = null;
+                actionInFlight = false;
+                autoDrawInProgress = false;
+                autoDrawDoneForTurn = false;
+                showDrawAnimation = false;
+                drawAnimationCard = null;
+                animatingReveal = false;
+            }
+            lastHandNumber = state.hand_number;
+        }
+
         // Restore drawn card state from server if we have a pending card
         if (state && state.pending_drawn_card && state.is_my_turn) {
             drawnCard = state.pending_drawn_card;
@@ -587,6 +605,15 @@ async function doBurnReveal(revealIndex) {
 async function signalNextHand() {
     try {
         await api('POST', '/next-hand');
+        // Reset all action/draw state for the new hand
+        actionPhase = null;
+        drawnCard = null;
+        actionInFlight = false;
+        autoDrawInProgress = false;
+        autoDrawDoneForTurn = false;
+        showDrawAnimation = false;
+        drawAnimationCard = null;
+        animatingReveal = false;
         await loadGameState();
     } catch (err) {
         showToast(err.message, 'error');

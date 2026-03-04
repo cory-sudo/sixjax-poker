@@ -276,8 +276,9 @@ function renderPlayerHand(state, me) {
         const selectableClass = selectable ? 'selectable' : '';
 
         if (c.face_up) {
+            const replaceGlowClass = ((actionPhase === 'select_replace' || (actionPhase === 'drawn' && allFaceUp)) && selectable) ? 'replace-glow' : '';
             return `
-                <div class="card face-up suit-${c.suit} ${selectableClass}" ${clickHandler}>
+                <div class="card face-up suit-${c.suit} ${selectableClass} ${replaceGlowClass}" ${clickHandler}>
                     <div class="card-inner">
                         <div class="card-front">
                             <div class="card-rank-top">${c.rank}</div>
@@ -290,8 +291,9 @@ function renderPlayerHand(state, me) {
                 </div>`;
         } else {
             const glowClass = (actionPhase === 'select_reveal' && selectable) ? 'reveal-glow' : '';
+            const replaceGlowClass = ((actionPhase === 'select_replace' || (actionPhase === 'drawn' && allFaceUp)) && selectable) ? 'replace-glow' : '';
             return `
-                <div class="card face-down ${selectableClass} ${glowClass}" ${clickHandler}>
+                <div class="card face-down ${selectableClass} ${glowClass} ${replaceGlowClass}" ${clickHandler}>
                     <div class="card-inner">
                         <div class="card-front"></div>
                         <div class="card-back">

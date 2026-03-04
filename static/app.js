@@ -84,6 +84,10 @@ function showToast(msg, type = 'info') {
 function navigate(screen) {
     stopPolling();
     clearAutoStartTimer();
+    // Always close scoring overlay when navigating away from game
+    if (currentScreen === 'game' && screen !== 'game') {
+        closeScoringOverlay();
+    }
     currentScreen = screen;
     window.location.hash = screen;
 
@@ -442,10 +446,19 @@ async function loadGameState() {
     if (actionInFlight) return;
     try {
         const state = await api('GET', '/game-state');
+        // Check if game ended due to not enough players
+        if (state && state.game_over_reason === 'not_enough_players') {
+            stopPolling();
+            closeScoringOverlay();
+            showToast('Not enough players — game ended', 'info');
+            setTimeout(() => navigate('lobby'), 2500);
+            return;
+        }
         gameState = state;
         renderGame(state);
     } catch (err) {
         if (err.message.includes('Not in an active game')) {
+            closeScoringOverlay();
             navigate('lobby');
         }
     }
@@ -635,18 +648,25 @@ function showBurnedCard(card) {
 
 function leaveGame() {
     clearAutoStartTimer();
+    closeScoringOverlay();
     api('POST', '/rooms/leave').catch(() => {});
     navigate('lobby');
 }
 
 async function returnToLobby() {
     clearAutoStartTimer();
+    closeScoringOverlay();
     try {
         await api('POST', '/rooms/leave');
     } catch (e) {
         // ignore
     }
     navigate('lobby');
+}
+
+function closeScoringOverlay() {
+    const overlay = document.getElementById('scoring-overlay');
+    if (overlay) overlay.classList.remove('active');
 }
 
 // ============================================================================

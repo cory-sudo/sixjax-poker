@@ -1011,6 +1011,81 @@ async function sendChatMessage(e) {
 }
 
 // ============================================================================
+// Client-side Hand Rank Evaluation (for live hand rank display)
+// ============================================================================
+function clientRankValue(r) {
+    const vals = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14};
+    return vals[r] || 0;
+}
+
+function evaluateFiveCards(cards) {
+    const ranksSorted = cards.map(c => clientRankValue(c.rank)).sort((a,b) => b - a);
+    const suits = cards.map(c => c.suit);
+    const isFlush = new Set(suits).size === 1;
+
+    let isStraight = false;
+    let straightHigh = 0;
+    const uniq = [...new Set(ranksSorted)].sort((a,b) => b - a);
+    if (uniq.length >= 5) {
+        for (let i = 0; i <= uniq.length - 5; i++) {
+            if (uniq[i] - uniq[i+4] === 4) {
+                isStraight = true;
+                straightHigh = uniq[i];
+                break;
+            }
+        }
+        if (!isStraight) {
+            const has = new Set(ranksSorted);
+            if (has.has(14) && has.has(2) && has.has(3) && has.has(4) && has.has(5)) {
+                isStraight = true;
+                straightHigh = 5;
+            }
+        }
+    }
+
+    const counts = {};
+    ranksSorted.forEach(r => { counts[r] = (counts[r]||0) + 1; });
+    const freq = Object.entries(counts)
+        .map(([r, c]) => [parseInt(r), c])
+        .sort((a,b) => b[1] - a[1] || b[0] - a[0]);
+
+    if (isStraight && isFlush) {
+        if (straightHigh === 14 && new Set(ranksSorted).size === 5 &&
+            [10,11,12,13,14].every(v => ranksSorted.includes(v))) {
+            return 'Royal Flush';
+        }
+        return 'Straight Flush';
+    }
+    if (freq[0][1] === 4) return 'Four of a Kind';
+    if (freq[0][1] === 3 && freq.length > 1 && freq[1][1] >= 2) return 'Full House';
+    if (isFlush) return 'Flush';
+    if (isStraight) return 'Straight';
+    if (freq[0][1] === 3) return 'Three of a Kind';
+    if (freq[0][1] === 2 && freq.length > 1 && freq[1][1] === 2) return 'Two Pair';
+    if (freq[0][1] === 2) return 'One Pair';
+    return 'High Card';
+}
+
+function getBestHandName(faceUpCards) {
+    if (faceUpCards.length < 5) return null;
+    if (faceUpCards.length === 5) return evaluateFiveCards(faceUpCards);
+    // 6 cards: evaluate all C(6,5)=6 combos
+    let bestRank = -1;
+    let bestName = 'High Card';
+    const rankOrder = ['High Card','One Pair','Two Pair','Three of a Kind','Straight','Flush','Full House','Four of a Kind','Straight Flush','Royal Flush'];
+    for (let skip = 0; skip < faceUpCards.length; skip++) {
+        const five = faceUpCards.filter((_, i) => i !== skip);
+        const name = evaluateFiveCards(five);
+        const idx = rankOrder.indexOf(name);
+        if (idx > bestRank) {
+            bestRank = idx;
+            bestName = name;
+        }
+    }
+    return bestName;
+}
+
+// ============================================================================
 // Utilities
 // ============================================================================
 function escapeHtml(str) {
@@ -1046,15 +1121,8 @@ function createCardHTML(suit, rank, faceUp, sizeClass = '') {
         <div class="card face-up ${colorClass} ${sizeClass}">
             <div class="card-inner">
                 <div class="card-front">
-                    <div class="card-rank-top">
-                        <span>${rank}</span>
-                        <span class="card-rank-suit">${sym}</span>
-                    </div>
-                    <div class="card-suit-center">${sym}</div>
-                    <div class="card-rank-bottom">
-                        <span>${rank}</span>
-                        <span class="card-rank-suit">${sym}</span>
-                    </div>
+                    <div class="card-rank-top">${rank}</div>
+                    <div class="card-suit-bottom">${sym}</div>
                 </div>
                 <div class="card-back">
                     <div class="card-back-pattern"></div>

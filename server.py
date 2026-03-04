@@ -1210,7 +1210,7 @@ def api_action():
         if reveal_idx is not None and 0 <= reveal_idx < 6:
             if not cards[reveal_idx].get('face_up', False):
                 cards[reveal_idx]['face_up'] = True
-                last_action += f", revealed card {reveal_idx + 1}"
+                last_action += f", revealed {cards[reveal_idx]['rank']}{suit_symbol(cards[reveal_idx]['suit'])}"
                 db.execute("UPDATE player_hands SET cards=? WHERE id=?",
                           (json.dumps(cards), ph['id']))
 

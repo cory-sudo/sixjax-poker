@@ -84,9 +84,11 @@ function showToast(msg, type = 'info') {
 function navigate(screen) {
     stopPolling();
     clearAutoStartTimer();
-    // Always close scoring overlay when navigating away from game
+    // Always close scoring overlay and chat when navigating away from game
     if (currentScreen === 'game' && screen !== 'game') {
         closeScoringOverlay();
+        stopChatPolling();
+        setChatOpen(false);
     }
     currentScreen = screen;
     window.location.hash = screen;
@@ -436,6 +438,7 @@ function initGameScreen() {
     autoDrawDoneForTurn = false;
     showDrawAnimation = false;
     drawAnimationCard = null;
+    initChat();
     loadGameState();
     startPolling(loadGameState, 1500);
 }
@@ -875,6 +878,137 @@ document.addEventListener('click', (e) => {
     // Clicking elsewhere hides tooltip
     hideInfoTooltip();
 });
+
+// ============================================================================
+// Chat
+// ============================================================================
+let chatOpen = false;
+let chatLastId = 0;
+let chatUnread = 0;
+let chatPollTimer = null;
+
+function initChat() {
+    chatLastId = 0;
+    chatUnread = 0;
+    updateChatBadge();
+    const container = document.getElementById('chat-messages');
+    if (container) container.innerHTML = '<div class="chat-empty">No messages yet</div>';
+
+    document.getElementById('chat-toggle-btn').onclick = toggleChat;
+    document.getElementById('chat-close-btn').onclick = () => setChatOpen(false);
+    document.getElementById('chat-form').onsubmit = sendChatMessage;
+
+    // Start chat polling (separate from game polling)
+    stopChatPolling();
+    pollChat();
+    chatPollTimer = setInterval(pollChat, 2000);
+}
+
+function stopChatPolling() {
+    if (chatPollTimer) {
+        clearInterval(chatPollTimer);
+        chatPollTimer = null;
+    }
+}
+
+function toggleChat() {
+    setChatOpen(!chatOpen);
+}
+
+function setChatOpen(open) {
+    chatOpen = open;
+    const panel = document.getElementById('chat-panel');
+    if (open) {
+        panel.classList.add('open');
+        chatUnread = 0;
+        updateChatBadge();
+        // Scroll to bottom
+        const msgs = document.getElementById('chat-messages');
+        msgs.scrollTop = msgs.scrollHeight;
+        // Focus input
+        document.getElementById('chat-input').focus();
+    } else {
+        panel.classList.remove('open');
+    }
+}
+
+function updateChatBadge() {
+    const badge = document.getElementById('chat-unread-badge');
+    if (!badge) return;
+    if (chatUnread > 0) {
+        badge.textContent = chatUnread > 9 ? '9+' : chatUnread;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+async function pollChat() {
+    if (currentScreen !== 'game') return;
+    try {
+        const messages = await api('GET', `/chat?since=${chatLastId}`);
+        if (messages && messages.length > 0) {
+            appendChatMessages(messages);
+        }
+    } catch (e) {
+        // Silently ignore chat poll errors
+    }
+}
+
+function appendChatMessages(messages) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    // Remove empty state if present
+    const empty = container.querySelector('.chat-empty');
+    if (empty) empty.remove();
+
+    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 30;
+    let newCount = 0;
+
+    for (const msg of messages) {
+        if (msg.id <= chatLastId) continue;
+        chatLastId = msg.id;
+        newCount++;
+
+        const isSelf = currentUser && msg.user_id === currentUser.id;
+        const div = document.createElement('div');
+        div.className = `chat-msg${isSelf ? ' chat-self' : ''}`;
+
+        const time = msg.created_at ? new Date(msg.created_at + 'Z') : new Date();
+        const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        div.innerHTML = `<span class="chat-author">${escapeHtml(msg.username)}:</span><span class="chat-text">${escapeHtml(msg.message)}</span><span class="chat-time">${timeStr}</span>`;
+        container.appendChild(div);
+    }
+
+    // Auto-scroll if was at bottom
+    if (wasAtBottom) {
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // Update unread count if chat is closed
+    if (!chatOpen && newCount > 0) {
+        chatUnread += newCount;
+        updateChatBadge();
+    }
+}
+
+async function sendChatMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message) return;
+
+    input.value = '';
+    try {
+        await api('POST', '/chat', { message });
+        // Poll immediately to show the message
+        await pollChat();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
 
 // ============================================================================
 // Utilities

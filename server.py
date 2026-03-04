@@ -1021,6 +1021,24 @@ def api_game_state():
     """, (uid,)).fetchone()
 
     if not rp:
+        # Check if user is in a room that just finished (e.g. other players left)
+        finished_rp = db.execute("""
+            SELECT rp.room_id FROM room_players rp
+            JOIN rooms r ON rp.room_id = r.id
+            WHERE rp.user_id=? AND r.status='finished'
+            ORDER BY rp.joined_at DESC LIMIT 1
+        """, (uid,)).fetchone()
+        if finished_rp:
+            # Check if this player is the only one left (others left mid-game)
+            remaining = db.execute("""
+                SELECT COUNT(*) as cnt FROM room_players WHERE room_id=?
+            """, (finished_rp['room_id'],)).fetchone()['cnt']
+            # Clean up: remove the player from the finished room
+            db.execute("DELETE FROM room_players WHERE room_id=? AND user_id=?",
+                      (finished_rp['room_id'], uid))
+            db.commit()
+            if remaining <= 1:
+                return jsonify({"game_over_reason": "not_enough_players"})
         return jsonify({"error": "Not in an active game"}), 404
 
     hand = db.execute("""

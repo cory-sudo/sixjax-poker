@@ -375,18 +375,21 @@ function renderScoringOverlay(state, me) {
     }).join('');
 
     const alreadyReady = state.ready_for_next && state.ready_for_next.includes(me.user_id);
-    const readyBtnText = alreadyReady ? 'Waiting for others...' : 'Ready for Next Hand';
+
+    // For AI games, use a faster auto-start (3s) and different wording
+    const isAi = isAiGame || state.is_ai_game;
+    const autoStartDelay = isAi ? 3 : 10;
+
+    const readyBtnText = alreadyReady ? 'Waiting...' : 'Next Hand';
     const readyBtnClass = alreadyReady ? 'btn btn-secondary' : 'btn btn-primary';
     const readyBtnDisabled = alreadyReady ? 'disabled' : '';
 
     // Auto-start countdown timer logic
-    // Only start timer if: not already ready, not already running
     if (!alreadyReady && !autoStartTimerRunning) {
         autoStartTimerRunning = true;
-        autoStartCountdown = 10;
+        autoStartCountdown = autoStartDelay;
         autoStartTimer = setInterval(() => {
             autoStartCountdown--;
-            // Update countdown text in DOM without full re-render
             const countdownEl = document.getElementById('auto-start-countdown');
             if (countdownEl) {
                 countdownEl.textContent = `Auto-ready in ${autoStartCountdown}s...`;
@@ -407,17 +410,21 @@ function renderScoringOverlay(state, me) {
         ? `Auto-ready in ${autoStartCountdown}s...`
         : '';
 
+    // AI games: show a simpler overlay with no "Return to Lobby" prominent
+    const lobbyBtnHTML = isAi
+        ? `<button class="btn btn-sm btn-secondary" onclick="returnToLobby()" style="margin-top:var(--sp-2)">Leave AI Game</button>`
+        : `<button class="btn btn-sm btn-secondary" onclick="returnToLobby()" style="margin-top:var(--sp-2)">Return to Lobby</button>`;
+
     content.innerHTML = `
         <h2>Hand Complete <span class="info-icon-inline" data-tip="scoring" title="Scoring info">?</span></h2>
+        ${isAi ? '<div class="ai-game-notice">AI Game — Points do not count toward leaderboard</div>' : ''}
         ${playersHTML}
         <div class="scoring-actions">
             <button class="${readyBtnClass}" onclick="onReadyForNextHand()" ${readyBtnDisabled}>
                 ${readyBtnText}
             </button>
             ${countdownText ? `<div id="auto-start-countdown" class="auto-start-countdown">${countdownText}</div>` : '<div id="auto-start-countdown" class="auto-start-countdown" style="display:none"></div>'}
-            <button class="btn btn-sm btn-secondary" onclick="returnToLobby()" style="margin-top:var(--sp-2)">
-                Return to Lobby
-            </button>
+            ${lobbyBtnHTML}
         </div>`;
 
     overlay.classList.add('active');

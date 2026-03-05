@@ -168,6 +168,33 @@
   background: rgba(255,92,92,0.25);
 }
 
+.btn-ai {
+  background: linear-gradient(135deg, #6c5ce7, #a855f7);
+  color: #fff;
+  border-color: #6c5ce7;
+  font-weight: 600;
+}
+.btn-ai:hover {
+  background: linear-gradient(135deg, #5a4bd6, #9333ea);
+  box-shadow: 0 0 16px rgba(108,92,231,0.4);
+}
+.btn-ai:active {
+  transform: scale(0.97);
+}
+.btn-ai:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ai-game-notice {
+  color: #a855f7;
+  font-size: var(--text-xs);
+  text-align: center;
+  margin-bottom: var(--sp-3);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
 .btn-sm {
   padding: var(--sp-2) var(--sp-4);
   font-size: var(--text-xs);

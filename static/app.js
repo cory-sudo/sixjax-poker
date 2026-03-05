@@ -10,6 +10,7 @@ let authToken = null;
 let currentUser = null;
 let pollingInterval = null;
 let currentScreen = null;
+let isAiGame = false;  // Track if current game is vs AI
 
 // Auto-start timer (managed in game-engine.js, cleared here)
 let autoStartTimer = null;
@@ -229,6 +230,23 @@ function initLobbyScreen() {
 
     // Settings gear button opens settings modal
     document.getElementById('settings-btn').onclick = () => openSettings();
+
+    // Play AI button
+    document.getElementById('play-ai-btn').onclick = async () => {
+        const btn = document.getElementById('play-ai-btn');
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
+        try {
+            await api('POST', '/play-ai');
+            isAiGame = true;
+            navigate('game');
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Play AI';
+        }
+    };
 }
 
 async function loadUserInfo() {
@@ -438,7 +456,16 @@ function initGameScreen() {
     autoDrawDoneForTurn = false;
     showDrawAnimation = false;
     drawAnimationCard = null;
-    initChat();
+    // Only init chat for non-AI games
+    if (!isAiGame) {
+        initChat();
+    } else {
+        stopChatPolling();
+        setChatOpen(false);
+    }
+    // Hide/show chat toggle button based on game type
+    const chatBtn = document.getElementById('chat-toggle-btn');
+    if (chatBtn) chatBtn.style.display = isAiGame ? 'none' : '';
     loadGameState();
     startPolling(loadGameState, 1500);
 }
@@ -453,15 +480,23 @@ async function loadGameState() {
         if (state && state.game_over_reason === 'not_enough_players') {
             stopPolling();
             closeScoringOverlay();
+            isAiGame = false;
             showToast('Not enough players — game ended', 'info');
             setTimeout(() => navigate('lobby'), 2500);
             return;
+        }
+        // Sync AI game flag from server and update chat visibility
+        if (state && state.is_ai_game !== undefined) {
+            isAiGame = state.is_ai_game;
+            const chatBtn = document.getElementById('chat-toggle-btn');
+            if (chatBtn) chatBtn.style.display = isAiGame ? 'none' : '';
         }
         gameState = state;
         renderGame(state);
     } catch (err) {
         if (err.message.includes('Not in an active game')) {
             closeScoringOverlay();
+            isAiGame = false;
             navigate('lobby');
         }
     }
@@ -469,6 +504,11 @@ async function loadGameState() {
 
 function renderGame(state) {
     if (typeof renderGameTable === 'function') {
+        // Sync AI game state from server
+        if (state && state.is_ai_game !== undefined) {
+            isAiGame = state.is_ai_game;
+        }
+
         // Detect new hand — reset all draw/action state
         if (state && state.hand_number !== lastHandNumber) {
             if (lastHandNumber !== null) {
@@ -652,6 +692,7 @@ function showBurnedCard(card) {
 function leaveGame() {
     clearAutoStartTimer();
     closeScoringOverlay();
+    isAiGame = false;
     api('POST', '/rooms/leave').catch(() => {});
     navigate('lobby');
 }
@@ -659,6 +700,7 @@ function leaveGame() {
 async function returnToLobby() {
     clearAutoStartTimer();
     closeScoringOverlay();
+    isAiGame = false;
     try {
         await api('POST', '/rooms/leave');
     } catch (e) {

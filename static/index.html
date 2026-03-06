@@ -1,484 +1,135 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SixJax Poker</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="base.css">
-    <link rel="stylesheet" href="style.css?v=4">
-    <link rel="stylesheet" href="cards.css?v=5">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9824;</text></svg>">
-</head>
-<body>
 
-<!-- Toast Container -->
-<div id="toast-container" class="toast-container"></div>
+♠ ♥ ♣ ♦
+SixJax
+Jax Players Club
+Sign In Register
+Username
+Password
 
-<!-- ============================================================ -->
-<!-- LOGIN SCREEN -->
-<!-- ============================================================ -->
-<div id="screen-login" class="screen active">
-    <div class="login-container">
-        <div class="login-brand">
-            <div class="suits">
-                <span>&#9824;</span>
-                <span class="red">&#9829;</span>
-                <span>&#9827;</span>
-                <span class="red">&#9830;</span>
-            </div>
-            <div class="main-title">SixJax</div>
-            <div class="subtitle">Jax Players Club</div>
-        </div>
+Sign In
+SixJax
 
-        <div class="login-box surface">
-            <div class="login-tabs">
-                <button class="login-tab active" data-tab="login">Sign In</button>
-                <button class="login-tab" data-tab="register">Register</button>
-            </div>
+Create Room Play AI
 
-            <form id="login-form" class="login-form">
-                <div class="input-group">
-                    <label for="login-username">Username</label>
-                    <input type="text" id="login-username" placeholder="Enter username" autocomplete="username" maxlength="20">
-                </div>
-                <div class="input-group">
-                    <label for="login-password">Password</label>
-                    <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password">
-                </div>
-                <div id="login-error" class="login-error"></div>
-                <button type="submit" id="login-submit-btn" class="btn btn-primary btn-lg">Sign In</button>
-            </form>
-        </div>
-    </div>
-</div>
+Join
+How to Play
+Open Rooms
+♠
+Loading rooms...
+Leaderboard
+♛
+No games played yet
+SixJax
 
-<!-- ============================================================ -->
-<!-- LOBBY SCREEN -->
-<!-- ============================================================ -->
-<div id="screen-lobby" class="screen">
-    <div class="app-container">
-        <header class="app-header">
-            <div class="brand">
-                <span class="brand-title">SixJax</span>
-            </div>
-            <div class="user-info">
-                <span id="header-username"></span>
-                <span id="header-points" class="user-points"></span>
-                <button id="settings-btn" class="settings-gear-btn" aria-label="Settings" title="Settings">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M16.2 12.2a1.4 1.4 0 00.28 1.54l.05.05a1.7 1.7 0 11-2.4 2.4l-.06-.05a1.4 1.4 0 00-1.54-.28 1.4 1.4 0 00-.85 1.28v.14a1.7 1.7 0 01-3.4 0v-.07a1.4 1.4 0 00-.92-1.28 1.4 1.4 0 00-1.54.28l-.05.05a1.7 1.7 0 11-2.4-2.4l.05-.06a1.4 1.4 0 00.28-1.54 1.4 1.4 0 00-1.28-.85H2.3a1.7 1.7 0 010-3.4h.07a1.4 1.4 0 001.28-.92 1.4 1.4 0 00-.28-1.54l-.05-.05a1.7 1.7 0 112.4-2.4l.06.05a1.4 1.4 0 001.54.28h.07a1.4 1.4 0 00.85-1.28V2.3a1.7 1.7 0 013.4 0v.07a1.4 1.4 0 00.85 1.28 1.4 1.4 0 001.54-.28l.05-.05a1.7 1.7 0 112.4 2.4l-.05.06a1.4 1.4 0 00-.28 1.54v.07a1.4 1.4 0 001.28.85h.14a1.7 1.7 0 010 3.4h-.07a1.4 1.4 0 00-1.28.85z" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>
-                </button>
-            </div>
-        </header>
+Room Code
+----- Click to copy
 
-        <div class="lobby-actions">
-            <button id="create-room-btn" class="btn btn-primary">Create Room</button>
-            <button id="play-ai-btn" class="btn btn-ai">Play AI</button>
-            <div style="display:flex;gap:var(--sp-2);align-items:center">
-                <input type="text" id="join-code-input" placeholder="Room Code" 
-                       style="width:120px;text-transform:uppercase" maxlength="5">
-                <button id="join-code-btn" class="btn btn-secondary btn-sm">Join</button>
-            </div>
-            <button id="how-to-play-btn" class="btn btn-secondary">How to Play</button>
-        </div>
+Ready Up Leave Room
+Hand #1 1x pts
+?
+Leave
 
-        <div>
-            <h2 class="section-title">Open Rooms</h2>
-            <div id="room-list" class="room-list">
-                <div class="empty-state">
-                    <div class="icon">&#9824;</div>
-                    <p>Loading rooms...</p>
-                </div>
-            </div>
-        </div>
 
-        <div class="leaderboard-section">
-            <h2 class="section-title">Leaderboard</h2>
-            <div id="leaderboard" class="leaderboard">
-                <div class="empty-state">
-                    <div class="icon">&#9819;</div>
-                    <p>No games played yet</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- ============================================================ -->
-<!-- ROOM SCREEN (Pre-game) -->
-<!-- ============================================================ -->
-<div id="screen-room" class="screen">
-    <div class="app-container">
-        <header class="app-header">
-            <div class="brand">
-                <span class="brand-title">SixJax</span>
-            </div>
-            <div class="user-info">
-                <span id="room-point-display" class="user-points"></span>
-            </div>
-        </header>
 
-        <div class="room-header">
-            <div class="label" style="margin-bottom:var(--sp-2)">Room Code</div>
-            <div class="room-code-display">
-                <span id="room-code-text">-----</span>
-                <span class="copy-hint">Click to copy</span>
-            </div>
-        </div>
+Loading...
 
-        <div id="player-slots" class="player-slots"></div>
+You
 
-        <div class="room-controls">
-            <button id="ready-btn" class="btn btn-primary">Ready Up</button>
-            <button id="leave-room-btn" class="btn btn-danger">Leave Room</button>
-        </div>
-    </div>
-</div>
+Game Chat ×
 
-<!-- ============================================================ -->
-<!-- GAME SCREEN -->
-<!-- ============================================================ -->
-<div id="screen-game" class="screen">
-    <div class="game-screen">
-        <!-- Top bar -->
-        <div class="game-top-bar">
-            <span id="hand-info" class="hand-info">Hand #1</span>
-            <span id="point-value-display" class="point-value">1x pts</span>
-            <div class="game-top-bar-right">
-                <button id="chat-toggle-btn" class="info-icon-btn" aria-label="Chat" title="Chat">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v8a1 1 0 01-1 1h-3l-3 3-3-3H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-                    <span id="chat-unread-badge" class="chat-unread-badge" style="display:none"></span>
-                </button>
-                <button id="game-help-btn" class="info-icon-btn" aria-label="Help" title="How to Play">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/><text x="10" y="14.5" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">?</text></svg>
-                </button>
-                <button id="leave-game-btn" class="btn btn-sm btn-secondary">Leave</button>
-            </div>
-        </div>
 
-        <!-- Opponents -->
-        <div id="opponents-area" class="opponents-area"></div>
 
-        <!-- Center: Draw pile, last card, actions -->
-        <div class="center-area">
-            <div class="table-center">
-                <div id="draw-pile" class="draw-pile"></div>
-                <div id="last-drawn-card" class="last-drawn-card"></div>
-            </div>
-            <div id="last-action-text" class="last-action-text"></div>
-            <div id="action-area" class="action-area">
-                <div id="turn-indicator" class="turn-indicator">Loading...</div>
-                <div id="action-buttons" class="action-buttons"></div>
-            </div>
-        </div>
+Your burned card was:
 
-        <!-- Player hand -->
-        <div class="player-hand-area">
-            <div id="player-label" class="player-label">You</div>
-            <div id="player-cards" class="player-cards"></div>
-        </div>
-    </div>
-</div>
+How to Play SixJax
+×
+Overview Gameplay Scoring Hand Rankings
+Welcome to SixJax Poker
+SixJax is a 6-card, point-based poker game for 2–6 players with no wagering. Build the best 5-card poker hand from your 6 cards to win points from your opponents.
+♠
+The Goal
+Win hands to earn points. The player with the best 5-card poker hand wins the round.
+🃏
+6 Cards, Not 5
+Each player has 6 cards. Your best 5-card combination is automatically selected.
+🔄
+Draw & Decide
+On your turn, draw a card and choose: replace one of your cards, or burn it and reveal a face-down card.
+How a Hand Works
+1
+Deal
+Each player gets 6 cards — 2 face-up and 4 face-down. No players see the face-down cards until they are revealed.
+2
+Draw Phase
+On your turn, draw a card from the deck. You'll see it before deciding what to do.
+3
+Choose Your Action
+Replace: Swap the drawn card with any card in your hand (replaced card goes to discard).
+Burn & Reveal: Discard the drawn card and optionally flip a face-down card face-up.
+4
+Final Turns
+When the deck runs out, each player gets one final turn. Then all cards are revealed.
+5
+Scoring
+The player with the best hand wins points from each opponent. See the Scoring tab for details.
+How Scoring Works
+The winner earns points from each losing player, not a flat amount.
+Base Points
+The winner receives 3 points from each loser. Example: In a 4-player game, the winner gets 3 × 3 = 9 points.
+Bonus Points
+The winner also earns bonus points per opponent based on hand quality difference.
+For each opponent: bonus = max(0, winner_bonus − opponent_bonus)
+Hand Bonus Value
+High Card through Three of a Kind +0
+Straight +1
+Flush +1
+Full House +3
+Four of a Kind +5
+Straight Flush +7
+Royal Flush +9
+Point Multiplier
+The room's point value multiplies all points. A 2x room doubles everything.
+Poker Hand Rankings
+Standard poker rankings, best to worst:
+1Royal FlushA K Q J 10, all same suit
+2Straight Flush5 consecutive cards, same suit
+3Four of a Kind4 cards of the same rank
+4Full House3 of a kind + a pair
+5Flush5 cards of the same suit
+6Straight5 consecutive cards, any suit
+7Three of a Kind3 cards of the same rank
+8Two PairTwo different pairs
+9One Pair2 cards of the same rank
+10High CardNo matching cards
+Settings
+×
+Change Password
+Current Password
+New Password
+Confirm New Password
 
-<!-- ============================================================ -->
-<!-- CHAT PANEL -->
-<!-- ============================================================ -->
-<div id="chat-panel" class="chat-panel">
-    <div class="chat-header">
-        <span>Game Chat</span>
-        <button id="chat-close-btn" class="chat-close-btn" aria-label="Close chat">&times;</button>
-    </div>
-    <div id="chat-messages" class="chat-messages"></div>
-    <form id="chat-form" class="chat-form">
-        <input type="text" id="chat-input" class="chat-input" placeholder="Type a message..." maxlength="200" autocomplete="off">
-        <button type="submit" class="chat-send-btn" aria-label="Send">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-7 14v-7H3z" fill="currentColor"/></svg>
-        </button>
-    </form>
-</div>
+Update Password
 
-<!-- ============================================================ -->
-<!-- SCORING OVERLAY -->
-<!-- ============================================================ -->
-<div id="scoring-overlay" class="scoring-overlay">
-    <div id="scoring-content" class="scoring-content"></div>
-</div>
+Log Out
 
-<!-- ============================================================ -->
-<!-- BURNED CARD POPUP -->
-<!-- ============================================================ -->
-<div id="burned-card-popup" class="burned-card-popup">
-    <div class="popup-text">Your burned card was:</div>
-    <div class="burned-card-display"></div>
-</div>
+Danger Zone
+Deleting your account is permanent and cannot be undone. All your stats will be lost.
+Delete Account
 
-<!-- ============================================================ -->
-<!-- HOW TO PLAY MODAL -->
-<!-- ============================================================ -->
-<div id="how-to-play-modal" class="modal-overlay">
-    <div class="modal help-modal">
-        <div class="help-modal-header">
-            <h2>How to Play SixJax</h2>
-            <button id="close-help-btn" class="help-close-btn" aria-label="Close">&times;</button>
-        </div>
-        <div class="help-tabs">
-            <button class="help-tab active" data-help="overview">Overview</button>
-            <button class="help-tab" data-help="gameplay">Gameplay</button>
-            <button class="help-tab" data-help="scoring">Scoring</button>
-            <button class="help-tab" data-help="hands">Hand Rankings</button>
-        </div>
-        <div class="help-content">
-            <!-- Overview -->
-            <div class="help-section active" id="help-overview">
-                <h3>Welcome to SixJax Poker</h3>
-                <p>SixJax is a 6-card, point-based poker game for 2&#8211;6 players with <strong>no wagering</strong>. Build the best 5-card poker hand from your 6 cards to win points from your opponents.</p>
-                <div class="help-highlight">
-                    <div class="help-highlight-icon">&#9824;</div>
-                    <div>
-                        <strong>The Goal</strong><br>
-                        Win hands to earn points. The player with the best 5-card poker hand wins the round.
-                    </div>
-                </div>
-                <div class="help-highlight">
-                    <div class="help-highlight-icon">&#127183;</div>
-                    <div>
-                        <strong>6 Cards, Not 5</strong><br>
-                        Each player has 6 cards. Your best 5-card combination is automatically selected.
-                    </div>
-                </div>
-                <div class="help-highlight">
-                    <div class="help-highlight-icon">&#128260;</div>
-                    <div>
-                        <strong>Draw &amp; Decide</strong><br>
-                        On your turn, draw a card and choose: replace one of your cards, or burn it and reveal a face-down card.
-                    </div>
-                </div>
-            </div>
-            <!-- Gameplay -->
-            <div class="help-section" id="help-gameplay">
-                <h3>How a Hand Works</h3>
-                <div class="help-step">
-                    <span class="help-step-num">1</span>
-                    <div>
-                        <strong>Deal</strong><br>
-                        Each player gets 6 cards &#8212; 2 face-up and 4 face-down. No players see the face-down cards until they are revealed.
-                    </div>
-                </div>
-                <div class="help-step">
-                    <span class="help-step-num">2</span>
-                    <div>
-                        <strong>Draw Phase</strong><br>
-                        On your turn, draw a card from the deck. You'll see it before deciding what to do.
-                    </div>
-                </div>
-                <div class="help-step">
-                    <span class="help-step-num">3</span>
-                    <div>
-                        <strong>Choose Your Action</strong><br>
-                        <em>Replace:</em> Swap the drawn card with any card in your hand (replaced card goes to discard).<br>
-                        <em>Burn &amp; Reveal:</em> Discard the drawn card and optionally flip a face-down card face-up.
-                    </div>
-                </div>
-                <div class="help-step">
-                    <span class="help-step-num">4</span>
-                    <div>
-                        <strong>Final Turns</strong><br>
-                        When the deck runs out, each player gets one final turn. Then all cards are revealed.
-                    </div>
-                </div>
-                <div class="help-step">
-                    <span class="help-step-num">5</span>
-                    <div>
-                        <strong>Scoring</strong><br>
-                        The player with the best hand wins points from each opponent. See the Scoring tab for details.
-                    </div>
-                </div>
-            </div>
-            <!-- Scoring -->
-            <div class="help-section" id="help-scoring">
-                <h3>How Scoring Works</h3>
-                <p>The winner earns points from <strong>each</strong> losing player, not a flat amount.</p>
-                <div class="help-scoring-box">
-                    <div class="help-scoring-title">Base Points</div>
-                    <p>The winner receives <strong>3 points from each loser</strong>.<br>
-                    Example: In a 4-player game, the winner gets 3 &times; 3 = <strong>9 points</strong>.</p>
-                </div>
-                <div class="help-scoring-box">
-                    <div class="help-scoring-title">Bonus Points</div>
-                    <p>The winner also earns bonus points <strong>per opponent</strong> based on hand quality difference.</p>
-                    <p>For each opponent:<br>
-                    <code>bonus = max(0, winner_bonus &#8722; opponent_bonus)</code></p>
-                </div>
-                <div class="help-bonus-table">
-                    <div class="help-bonus-header">
-                        <span>Hand</span>
-                        <span>Bonus Value</span>
-                    </div>
-                    <div class="help-bonus-row">
-                        <span>High Card through Three of a Kind</span>
-                        <span>+0</span>
-                    </div>
-                    <div class="help-bonus-row">
-                        <span>Straight</span>
-                        <span>+1</span>
-                    </div>
-                    <div class="help-bonus-row">
-                        <span>Flush</span>
-                        <span>+1</span>
-                    </div>
-                    <div class="help-bonus-row">
-                        <span>Full House</span>
-                        <span>+3</span>
-                    </div>
-                    <div class="help-bonus-row">
-                        <span>Four of a Kind</span>
-                        <span>+5</span>
-                    </div>
-                    <div class="help-bonus-row">
-                        <span>Straight Flush</span>
-                        <span>+7</span>
-                    </div>
-                    <div class="help-bonus-row">
-                        <span>Royal Flush</span>
-                        <span>+9</span>
-                    </div>
-                </div>
-                <div class="help-scoring-box">
-                    <div class="help-scoring-title">Point Multiplier</div>
-                    <p>The room's point value multiplies all points. A 2x room doubles everything.</p>
-                </div>
-            </div>
-            <!-- Hand Rankings -->
-            <div class="help-section" id="help-hands">
-                <h3>Poker Hand Rankings</h3>
-                <p>Standard poker rankings, best to worst:</p>
-                <div class="help-hand-list">
-                    <div class="help-hand-item"><span class="help-hand-rank">1</span><strong>Royal Flush</strong><span class="help-hand-desc">A K Q J 10, all same suit</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">2</span><strong>Straight Flush</strong><span class="help-hand-desc">5 consecutive cards, same suit</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">3</span><strong>Four of a Kind</strong><span class="help-hand-desc">4 cards of the same rank</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">4</span><strong>Full House</strong><span class="help-hand-desc">3 of a kind + a pair</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">5</span><strong>Flush</strong><span class="help-hand-desc">5 cards of the same suit</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">6</span><strong>Straight</strong><span class="help-hand-desc">5 consecutive cards, any suit</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">7</span><strong>Three of a Kind</strong><span class="help-hand-desc">3 cards of the same rank</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">8</span><strong>Two Pair</strong><span class="help-hand-desc">Two different pairs</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">9</span><strong>One Pair</strong><span class="help-hand-desc">2 cards of the same rank</span></div>
-                    <div class="help-hand-item"><span class="help-hand-rank">10</span><strong>High Card</strong><span class="help-hand-desc">No matching cards</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- SETTINGS MODAL -->
-<!-- ============================================================ -->
-<div id="settings-modal" class="modal-overlay">
-    <div class="modal settings-modal">
-        <div class="settings-modal-header">
-            <h2>Settings</h2>
-            <button id="close-settings-btn" class="help-close-btn" aria-label="Close">&times;</button>
-        </div>
-
-        <div class="settings-modal-body">
-
-        <!-- Change Password -->
-        <div class="settings-section">
-            <div class="settings-section-title">Change Password</div>
-            <form id="change-password-form" class="settings-form">
-                <div class="input-group">
-                    <label for="settings-current-pw">Current Password</label>
-                    <input type="password" id="settings-current-pw" placeholder="Enter current password" autocomplete="current-password">
-                </div>
-                <div class="input-group">
-                    <label for="settings-new-pw">New Password</label>
-                    <input type="password" id="settings-new-pw" placeholder="New password (min 3 chars)" autocomplete="new-password">
-                </div>
-                <div class="input-group">
-                    <label for="settings-confirm-pw">Confirm New Password</label>
-                    <input type="password" id="settings-confirm-pw" placeholder="Confirm new password" autocomplete="new-password">
-                </div>
-                <div id="change-pw-error" class="settings-error"></div>
-                <button type="submit" class="btn btn-primary btn-sm">Update Password</button>
-            </form>
-        </div>
-
-        <div class="settings-divider"></div>
-
-        <!-- Log Out -->
-        <div class="settings-section">
-            <button id="settings-logout-btn" class="btn btn-secondary" style="width:100%">Log Out</button>
-        </div>
-
-        <div class="settings-divider"></div>
-
-        <!-- Delete Account -->
-        <div class="settings-section">
-            <div class="settings-section-title danger-title">Danger Zone</div>
-            <p class="settings-danger-desc">Deleting your account is permanent and cannot be undone. All your stats will be lost.</p>
-            <div id="delete-account-confirm" style="display:none">
-                <div class="input-group">
-                    <label for="settings-delete-pw">Enter your password to confirm</label>
-                    <input type="password" id="settings-delete-pw" placeholder="Your password">
-                </div>
-                <div id="delete-account-error" class="settings-error"></div>
-                <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-3)">
-                    <button id="delete-account-cancel-btn" class="btn btn-secondary btn-sm">Cancel</button>
-                    <button id="delete-account-confirm-btn" class="btn btn-danger btn-sm">Yes, Delete My Account</button>
-                </div>
-            </div>
-            <button id="delete-account-btn" class="btn btn-danger btn-sm">Delete Account</button>
-        </div>
-
-        </div><!-- /.settings-modal-body -->
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- GAME INFO TOOLTIP -->
-<!-- ============================================================ -->
-<div id="game-info-tooltip" class="game-info-tooltip"></div>
-
-<!-- ============================================================ -->
-<!-- CREATE ROOM MODAL -->
-<!-- ============================================================ -->
-<div id="create-room-modal" class="modal-overlay">
-    <div class="modal">
-        <h2>Create Room</h2>
-        <form id="create-room-form">
-            <div class="input-group">
-                <label for="room-point-value">Point Value</label>
-                <select id="room-point-value">
-                    <option value="0.5">0.5x</option>
-                    <option value="1" selected>1x</option>
-                    <option value="2">2x</option>
-                    <option value="5">5x</option>
-                    <option value="10">10x</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label for="room-max-players">Max Players</label>
-                <select id="room-max-players">
-                    <option value="2">2 Players</option>
-                    <option value="3">3 Players</option>
-                    <option value="4" selected>4 Players</option>
-                    <option value="5">5 Players</option>
-                    <option value="6">6 Players</option>
-                </select>
-            </div>
-            <div class="modal-actions">
-                <button type="button" id="cancel-create-room" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script src="app.js?v=17"></script>
-<script src="game-engine.js?v=6"></script>
-</body>
-</html>
+Create Room
+Point Value
+                    0.5x
+                    1x
+                    2x
+                    5x
+                    10x
+                
+Max Players
+                    2 Players
+                    3 Players
+                    4 Players
+                    5 Players
+                    6 Players
+                
+Cancel Create

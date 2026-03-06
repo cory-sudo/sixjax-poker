@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="base.css">
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=3">
     <link rel="stylesheet" href="cards.css?v=5">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9824;</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠</text></svg>">
 </head>
 <body>
 
@@ -24,10 +24,10 @@
     <div class="login-container">
         <div class="login-brand">
             <div class="suits">
-                <span>&#9824;</span>
-                <span class="red">&#9829;</span>
-                <span>&#9827;</span>
-                <span class="red">&#9830;</span>
+                <span>♠</span>
+                <span class="red">♥</span>
+                <span>♣</span>
+                <span class="red">♦</span>
             </div>
             <div class="main-title">SixJax</div>
             <div class="subtitle">Jax Players Club</div>
@@ -78,7 +78,6 @@
 
         <div class="lobby-actions">
             <button id="create-room-btn" class="btn btn-primary">Create Room</button>
-            <button id="play-ai-btn" class="btn btn-ai">Play AI</button>
             <div style="display:flex;gap:var(--sp-2);align-items:center">
                 <input type="text" id="join-code-input" placeholder="Room Code" 
                        style="width:120px;text-transform:uppercase" maxlength="5">
@@ -91,7 +90,7 @@
             <h2 class="section-title">Open Rooms</h2>
             <div id="room-list" class="room-list">
                 <div class="empty-state">
-                    <div class="icon">&#9824;</div>
+                    <div class="icon">♠</div>
                     <p>Loading rooms...</p>
                 </div>
             </div>
@@ -101,7 +100,7 @@
             <h2 class="section-title">Leaderboard</h2>
             <div id="leaderboard" class="leaderboard">
                 <div class="empty-state">
-                    <div class="icon">&#9819;</div>
+                    <div class="icon">♛</div>
                     <p>No games played yet</p>
                 </div>
             </div>
@@ -236,23 +235,23 @@
             <!-- Overview -->
             <div class="help-section active" id="help-overview">
                 <h3>Welcome to SixJax Poker</h3>
-                <p>SixJax is a 6-card, point-based poker game for 2&#8211;6 players with <strong>no wagering</strong>. Build the best 5-card poker hand from your 6 cards to win points from your opponents.</p>
+                <p>SixJax is a 6-card, point-based poker game for 2–6 players with <strong>no wagering</strong>. Build the best 5-card poker hand from your 6 cards to win points from your opponents.</p>
                 <div class="help-highlight">
-                    <div class="help-highlight-icon">&#9824;</div>
+                    <div class="help-highlight-icon">♠</div>
                     <div>
                         <strong>The Goal</strong><br>
                         Win hands to earn points. The player with the best 5-card poker hand wins the round.
                     </div>
                 </div>
                 <div class="help-highlight">
-                    <div class="help-highlight-icon">&#127183;</div>
+                    <div class="help-highlight-icon">🃏</div>
                     <div>
                         <strong>6 Cards, Not 5</strong><br>
                         Each player has 6 cards. Your best 5-card combination is automatically selected.
                     </div>
                 </div>
                 <div class="help-highlight">
-                    <div class="help-highlight-icon">&#128260;</div>
+                    <div class="help-highlight-icon">🔄</div>
                     <div>
                         <strong>Draw &amp; Decide</strong><br>
                         On your turn, draw a card and choose: replace one of your cards, or burn it and reveal a face-down card.
@@ -266,7 +265,7 @@
                     <span class="help-step-num">1</span>
                     <div>
                         <strong>Deal</strong><br>
-                        Each player gets 6 cards &#8212; 2 face-up and 4 face-down. No players see the face-down cards until they are revealed.
+                        Each player gets 6 cards — 2 face-up and 4 face-down. No players see the face-down cards until they are revealed.
                     </div>
                 </div>
                 <div class="help-step">
@@ -312,7 +311,7 @@
                     <div class="help-scoring-title">Bonus Points</div>
                     <p>The winner also earns bonus points <strong>per opponent</strong> based on hand quality difference.</p>
                     <p>For each opponent:<br>
-                    <code>bonus = max(0, winner_bonus &#8722; opponent_bonus)</code></p>
+                    <code>bonus = max(0, winner_bonus − opponent_bonus)</code></p>
                 </div>
                 <div class="help-bonus-table">
                     <div class="help-bonus-header">
@@ -478,7 +477,7 @@
     </div>
 </div>
 
-<script src="app.js?v=18"></script>
-<script src="game-engine.js?v=6"></script>
+<script src="app.js?v=15"></script>
+<script src="game-engine.js?v=5"></script>
 </body>
 </html>

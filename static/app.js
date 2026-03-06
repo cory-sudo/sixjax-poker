@@ -1,6 +1,6 @@
-/* app.js â€” Main app logic, routing, API client */
+/* app.js — Main app logic, routing, API client */
 
-// API base â€” same origin, Flask serves both frontend and API
+// API base — same origin, Flask serves both frontend and API
 const API_BASE = '/api';
 
 // ============================================================================
@@ -10,7 +10,6 @@ let authToken = null;
 let currentUser = null;
 let pollingInterval = null;
 let currentScreen = null;
-let isAiGame = false;  // Track if current game is vs AI
 
 // Auto-start timer (managed in game-engine.js, cleared here)
 let autoStartTimer = null;
@@ -230,23 +229,6 @@ function initLobbyScreen() {
 
     // Settings gear button opens settings modal
     document.getElementById('settings-btn').onclick = () => openSettings();
-
-    // Play AI button
-    document.getElementById('play-ai-btn').onclick = async () => {
-        const btn = document.getElementById('play-ai-btn');
-        btn.disabled = true;
-        btn.textContent = 'Starting...';
-        try {
-            await api('POST', '/play-ai');
-            isAiGame = true;
-            navigate('game');
-        } catch (err) {
-            showToast(err.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Play AI';
-        }
-    };
 }
 
 async function loadUserInfo() {
@@ -273,7 +255,7 @@ async function loadRoomList() {
         if (rooms.length === 0) {
             list.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">â™ </div>
+                    <div class="icon">♠</div>
                     <p>No open rooms. Create one!</p>
                 </div>`;
             return;
@@ -440,7 +422,6 @@ let animatingReveal = false;
 let actionInFlight = false; // Prevent double-clicks and race conditions
 let autoDrawInProgress = false;  // prevents double auto-draw
 let autoDrawDoneForTurn = false; // tracks if we already auto-drew this turn
-let autoDrawRetryCount = 0;  // track auto-draw retries to prevent infinite loops
 let showDrawAnimation = false;   // controls the fly-in animation
 let drawAnimationCard = null;    // card data for animation
 
@@ -455,19 +436,9 @@ function initGameScreen() {
     actionInFlight = false;
     autoDrawInProgress = false;
     autoDrawDoneForTurn = false;
-    autoDrawRetryCount = 0;
     showDrawAnimation = false;
     drawAnimationCard = null;
-    // Only init chat for non-AI games
-    if (!isAiGame) {
-        initChat();
-    } else {
-        stopChatPolling();
-        setChatOpen(false);
-    }
-    // Hide/show chat toggle button based on game type
-    const chatBtn = document.getElementById('chat-toggle-btn');
-    if (chatBtn) chatBtn.style.display = isAiGame ? 'none' : '';
+    initChat();
     loadGameState();
     startPolling(loadGameState, 1500);
 }
@@ -476,32 +447,21 @@ async function loadGameState() {
     if (currentScreen !== 'game') return;
     // Don't overwrite state while an action is in flight
     if (actionInFlight) return;
-    // Don't poll while user is actively selecting a card to replace/reveal
-    // (poll re-renders would destroy the selection UI mid-click)
-    if (actionPhase === 'select_replace' || actionPhase === 'select_reveal') return;
     try {
         const state = await api('GET', '/game-state');
         // Check if game ended due to not enough players
         if (state && state.game_over_reason === 'not_enough_players') {
             stopPolling();
             closeScoringOverlay();
-            isAiGame = false;
-            showToast('Not enough players â€” game ended', 'info');
+            showToast('Not enough players — game ended', 'info');
             setTimeout(() => navigate('lobby'), 2500);
             return;
-        }
-        // Sync AI game flag from server and update chat visibility
-        if (state && state.is_ai_game !== undefined) {
-            isAiGame = state.is_ai_game;
-            const chatBtn = document.getElementById('chat-toggle-btn');
-            if (chatBtn) chatBtn.style.display = isAiGame ? 'none' : '';
         }
         gameState = state;
         renderGame(state);
     } catch (err) {
         if (err.message.includes('Not in an active game')) {
             closeScoringOverlay();
-            isAiGame = false;
             navigate('lobby');
         }
     }
@@ -509,21 +469,15 @@ async function loadGameState() {
 
 function renderGame(state) {
     if (typeof renderGameTable === 'function') {
-        // Sync AI game state from server
-        if (state && state.is_ai_game !== undefined) {
-            isAiGame = state.is_ai_game;
-        }
-
-        // Detect new hand â€” reset all draw/action state
+        // Detect new hand — reset all draw/action state
         if (state && state.hand_number !== lastHandNumber) {
             if (lastHandNumber !== null) {
-                // Hand changed â€” full reset
+                // Hand changed — full reset
                 actionPhase = null;
                 drawnCard = null;
                 actionInFlight = false;
                 autoDrawInProgress = false;
                 autoDrawDoneForTurn = false;
-                autoDrawRetryCount = 0;
                 showDrawAnimation = false;
                 drawAnimationCard = null;
                 animatingReveal = false;
@@ -539,7 +493,7 @@ function renderGame(state) {
             }
             autoDrawDoneForTurn = true; // already have a card
         } else if (state && !state.is_my_turn) {
-            // Not our turn â€” reset action state
+            // Not our turn — reset action state
             actionPhase = null;
             drawnCard = null;
             autoDrawDoneForTurn = false;
@@ -561,18 +515,13 @@ function renderGame(state) {
 // Game actions
 async function autoDrawCard() {
     if (autoDrawInProgress || actionInFlight) return;
-    if (autoDrawRetryCount >= 3) {
-        // Prevent infinite retry loops â€” let the next poll cycle try again
-        return;
-    }
     autoDrawInProgress = true;
     autoDrawDoneForTurn = true;
     actionInFlight = true; // Block polling during auto-draw
-    autoDrawRetryCount++;
     try {
         const result = await api('POST', '/draw');
         if (result.deck_empty) {
-            showToast('Deck is empty â€” hand ending', 'info');
+            showToast('Deck is empty — hand ending', 'info');
             autoDrawInProgress = false;
             actionInFlight = false;
             await loadGameState();
@@ -585,7 +534,6 @@ async function autoDrawCard() {
         actionPhase = 'drawn';
         autoDrawInProgress = false;
         actionInFlight = false; // Allow polling again
-        autoDrawRetryCount = 0; // Reset retry count on success
         renderGame(gameState);
         
         // After animation completes (1200ms), switch to normal drawn state
@@ -598,14 +546,8 @@ async function autoDrawCard() {
         autoDrawInProgress = false;
         autoDrawDoneForTurn = false;
         actionInFlight = false;
-        // Only show toast for non-transient errors
-        if (err.message && !err.message.includes('Not your turn') && !err.message.includes('Cannot draw')) {
-            showToast(err.message, 'error');
-        }
-        // Reload state â€” the server may have advanced past our expected state
-        // Reset retry count so the next poll cycle can try again
-        autoDrawRetryCount = 0;
-        try { await loadGameState(); } catch (e) { /* ignore nested error */ }
+        showToast(err.message, 'error');
+        await loadGameState();
     }
 }
 
@@ -615,7 +557,7 @@ async function drawCard() {
     try {
         const result = await api('POST', '/draw');
         if (result.deck_empty) {
-            showToast('Deck is empty â€” hand ending', 'info');
+            showToast('Deck is empty — hand ending', 'info');
             actionInFlight = false;
             await loadGameState();
             return;
@@ -642,9 +584,6 @@ async function doReplace(cardIndex) {
         });
         actionPhase = null;
         drawnCard = null;
-        autoDrawDoneForTurn = false;
-        autoDrawInProgress = false;
-        autoDrawRetryCount = 0;
         actionInFlight = false;
         
         // Show burned card if it was face-down
@@ -657,9 +596,6 @@ async function doReplace(cardIndex) {
         actionInFlight = false;
         actionPhase = null;
         drawnCard = null;
-        autoDrawDoneForTurn = false;
-        autoDrawInProgress = false;
-        autoDrawRetryCount = 0;
         showToast(err.message, 'error');
         await loadGameState();
     }
@@ -675,18 +611,12 @@ async function doBurnReveal(revealIndex) {
         });
         actionPhase = null;
         drawnCard = null;
-        autoDrawDoneForTurn = false;
-        autoDrawInProgress = false;
-        autoDrawRetryCount = 0;
         actionInFlight = false;
         await loadGameState();
     } catch (err) {
         actionInFlight = false;
         actionPhase = null;
         drawnCard = null;
-        autoDrawDoneForTurn = false;
-        autoDrawInProgress = false;
-        autoDrawRetryCount = 0;
         showToast(err.message, 'error');
         await loadGameState();
     }
@@ -701,7 +631,6 @@ async function signalNextHand() {
         actionInFlight = false;
         autoDrawInProgress = false;
         autoDrawDoneForTurn = false;
-        autoDrawRetryCount = 0;
         showDrawAnimation = false;
         drawAnimationCard = null;
         animatingReveal = false;
@@ -723,7 +652,6 @@ function showBurnedCard(card) {
 function leaveGame() {
     clearAutoStartTimer();
     closeScoringOverlay();
-    isAiGame = false;
     api('POST', '/rooms/leave').catch(() => {});
     navigate('lobby');
 }
@@ -731,7 +659,6 @@ function leaveGame() {
 async function returnToLobby() {
     clearAutoStartTimer();
     closeScoringOverlay();
-    isAiGame = false;
     try {
         await api('POST', '/rooms/leave');
     } catch (e) {
@@ -1168,7 +1095,7 @@ function escapeHtml(str) {
 }
 
 function suitSymbol(suit) {
-    const m = { hearts: 'â™¥', diamonds: 'â™¦', clubs: 'â™£', spades: 'â™ ' };
+    const m = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
     return m[suit] || '';
 }
 

@@ -1225,6 +1225,28 @@ def api_game_state():
         return jsonify({"error": "No active hand"}), 404
 
     state = sanitize_game_state(db, hand['id'], uid)
+
+    # Safety net: if it's an AI game and it's the AI's turn, trigger AI
+    # (handles case where AI turn failed in a previous request)
+    if state and state.get('is_ai_game'):
+        ai_rp = db.execute(
+            "SELECT seat_position FROM room_players WHERE room_id=? AND user_id=?",
+            (rp['room_id'], AI_USER_ID)
+        ).fetchone()
+        current_hand = db.execute(
+            "SELECT current_turn_seat, state FROM game_hands WHERE id=?",
+            (hand['id'],)
+        ).fetchone()
+        if (ai_rp and current_hand and
+                current_hand['state'] in ('PLAYING', 'FINAL_TURNS') and
+                current_hand['current_turn_seat'] == ai_rp['seat_position']):
+            try:
+                maybe_ai_turn(db, rp['room_id'])
+                # Re-fetch state after AI turn
+                state = sanitize_game_state(db, hand['id'], uid)
+            except Exception as ai_err:
+                logger.error(f"AI turn recovery in poll: {ai_err}", exc_info=True)
+
     return jsonify(state)
 
 @app.route('/api/draw', methods=['POST'])
@@ -1388,8 +1410,12 @@ def api_action():
 
         advance_turn(db, hand['id'], rp['seat_position'], num_players, hand['state'])
 
-    # Trigger AI turn if needed (AI game)
-    maybe_ai_turn(db, rp['room_id'])
+    # Trigger AI turn if needed (AI game) — wrapped in try/except
+    # so AI errors don't cause 500 on the human's action response
+    try:
+        maybe_ai_turn(db, rp['room_id'])
+    except Exception as ai_err:
+        logger.error(f"AI turn error after human action: {ai_err}", exc_info=True)
 
     return jsonify(response_data)
 
@@ -1452,7 +1478,10 @@ def api_next_hand():
         db.commit()
 
         # Trigger AI if it's the AI's turn after dealing
-        maybe_ai_turn(db, room_id)
+        try:
+            maybe_ai_turn(db, room_id)
+        except Exception as ai_err:
+            logger.error(f"AI turn error after next-hand: {ai_err}", exc_info=True)
 
     return jsonify({"ok": True, "all_ready": ready >= total})
 
@@ -1589,7 +1618,10 @@ def api_play_ai():
     db.commit()
 
     # Step 7: Check if AI goes first — if so, run AI turn
-    maybe_ai_turn(db, room_id)
+    try:
+        maybe_ai_turn(db, room_id)
+    except Exception as ai_err:
+        logger.error(f"AI turn error on game start: {ai_err}", exc_info=True)
 
     return jsonify({"room_id": room_id, "room_code": code}), 201
 

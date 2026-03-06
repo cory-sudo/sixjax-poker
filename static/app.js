@@ -1,6 +1,6 @@
-/* app.js — Main app logic, routing, API client */
+/* app.js â€” Main app logic, routing, API client */
 
-// API base — same origin, Flask serves both frontend and API
+// API base â€” same origin, Flask serves both frontend and API
 const API_BASE = '/api';
 
 // ============================================================================
@@ -273,7 +273,7 @@ async function loadRoomList() {
         if (rooms.length === 0) {
             list.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">♠</div>
+                    <div class="icon">â™ </div>
                     <p>No open rooms. Create one!</p>
                 </div>`;
             return;
@@ -440,6 +440,7 @@ let animatingReveal = false;
 let actionInFlight = false; // Prevent double-clicks and race conditions
 let autoDrawInProgress = false;  // prevents double auto-draw
 let autoDrawDoneForTurn = false; // tracks if we already auto-drew this turn
+let autoDrawRetryCount = 0;  // track auto-draw retries to prevent infinite loops
 let showDrawAnimation = false;   // controls the fly-in animation
 let drawAnimationCard = null;    // card data for animation
 
@@ -454,6 +455,7 @@ function initGameScreen() {
     actionInFlight = false;
     autoDrawInProgress = false;
     autoDrawDoneForTurn = false;
+    autoDrawRetryCount = 0;
     showDrawAnimation = false;
     drawAnimationCard = null;
     // Only init chat for non-AI games
@@ -474,6 +476,9 @@ async function loadGameState() {
     if (currentScreen !== 'game') return;
     // Don't overwrite state while an action is in flight
     if (actionInFlight) return;
+    // Don't poll while user is actively selecting a card to replace/reveal
+    // (poll re-renders would destroy the selection UI mid-click)
+    if (actionPhase === 'select_replace' || actionPhase === 'select_reveal') return;
     try {
         const state = await api('GET', '/game-state');
         // Check if game ended due to not enough players
@@ -481,7 +486,7 @@ async function loadGameState() {
             stopPolling();
             closeScoringOverlay();
             isAiGame = false;
-            showToast('Not enough players — game ended', 'info');
+            showToast('Not enough players â€” game ended', 'info');
             setTimeout(() => navigate('lobby'), 2500);
             return;
         }
@@ -509,15 +514,16 @@ function renderGame(state) {
             isAiGame = state.is_ai_game;
         }
 
-        // Detect new hand — reset all draw/action state
+        // Detect new hand â€” reset all draw/action state
         if (state && state.hand_number !== lastHandNumber) {
             if (lastHandNumber !== null) {
-                // Hand changed — full reset
+                // Hand changed â€” full reset
                 actionPhase = null;
                 drawnCard = null;
                 actionInFlight = false;
                 autoDrawInProgress = false;
                 autoDrawDoneForTurn = false;
+                autoDrawRetryCount = 0;
                 showDrawAnimation = false;
                 drawAnimationCard = null;
                 animatingReveal = false;
@@ -533,7 +539,7 @@ function renderGame(state) {
             }
             autoDrawDoneForTurn = true; // already have a card
         } else if (state && !state.is_my_turn) {
-            // Not our turn — reset action state
+            // Not our turn â€” reset action state
             actionPhase = null;
             drawnCard = null;
             autoDrawDoneForTurn = false;
@@ -555,13 +561,18 @@ function renderGame(state) {
 // Game actions
 async function autoDrawCard() {
     if (autoDrawInProgress || actionInFlight) return;
+    if (autoDrawRetryCount >= 3) {
+        // Prevent infinite retry loops â€” let the next poll cycle try again
+        return;
+    }
     autoDrawInProgress = true;
     autoDrawDoneForTurn = true;
     actionInFlight = true; // Block polling during auto-draw
+    autoDrawRetryCount++;
     try {
         const result = await api('POST', '/draw');
         if (result.deck_empty) {
-            showToast('Deck is empty — hand ending', 'info');
+            showToast('Deck is empty â€” hand ending', 'info');
             autoDrawInProgress = false;
             actionInFlight = false;
             await loadGameState();
@@ -574,6 +585,7 @@ async function autoDrawCard() {
         actionPhase = 'drawn';
         autoDrawInProgress = false;
         actionInFlight = false; // Allow polling again
+        autoDrawRetryCount = 0; // Reset retry count on success
         renderGame(gameState);
         
         // After animation completes (1200ms), switch to normal drawn state
@@ -586,8 +598,14 @@ async function autoDrawCard() {
         autoDrawInProgress = false;
         autoDrawDoneForTurn = false;
         actionInFlight = false;
-        showToast(err.message, 'error');
-        await loadGameState();
+        // Only show toast for non-transient errors
+        if (err.message && !err.message.includes('Not your turn') && !err.message.includes('Cannot draw')) {
+            showToast(err.message, 'error');
+        }
+        // Reload state â€” the server may have advanced past our expected state
+        // Reset retry count so the next poll cycle can try again
+        autoDrawRetryCount = 0;
+        try { await loadGameState(); } catch (e) { /* ignore nested error */ }
     }
 }
 
@@ -597,7 +615,7 @@ async function drawCard() {
     try {
         const result = await api('POST', '/draw');
         if (result.deck_empty) {
-            showToast('Deck is empty — hand ending', 'info');
+            showToast('Deck is empty â€” hand ending', 'info');
             actionInFlight = false;
             await loadGameState();
             return;
@@ -626,6 +644,7 @@ async function doReplace(cardIndex) {
         drawnCard = null;
         autoDrawDoneForTurn = false;
         autoDrawInProgress = false;
+        autoDrawRetryCount = 0;
         actionInFlight = false;
         
         // Show burned card if it was face-down
@@ -640,6 +659,7 @@ async function doReplace(cardIndex) {
         drawnCard = null;
         autoDrawDoneForTurn = false;
         autoDrawInProgress = false;
+        autoDrawRetryCount = 0;
         showToast(err.message, 'error');
         await loadGameState();
     }
@@ -657,6 +677,7 @@ async function doBurnReveal(revealIndex) {
         drawnCard = null;
         autoDrawDoneForTurn = false;
         autoDrawInProgress = false;
+        autoDrawRetryCount = 0;
         actionInFlight = false;
         await loadGameState();
     } catch (err) {
@@ -665,6 +686,7 @@ async function doBurnReveal(revealIndex) {
         drawnCard = null;
         autoDrawDoneForTurn = false;
         autoDrawInProgress = false;
+        autoDrawRetryCount = 0;
         showToast(err.message, 'error');
         await loadGameState();
     }
@@ -679,6 +701,7 @@ async function signalNextHand() {
         actionInFlight = false;
         autoDrawInProgress = false;
         autoDrawDoneForTurn = false;
+        autoDrawRetryCount = 0;
         showDrawAnimation = false;
         drawAnimationCard = null;
         animatingReveal = false;
@@ -1145,7 +1168,7 @@ function escapeHtml(str) {
 }
 
 function suitSymbol(suit) {
-    const m = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+    const m = { hearts: 'â™¥', diamonds: 'â™¦', clubs: 'â™£', spades: 'â™ ' };
     return m[suit] || '';
 }
 

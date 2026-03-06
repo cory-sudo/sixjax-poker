@@ -624,6 +624,8 @@ async function doReplace(cardIndex) {
         });
         actionPhase = null;
         drawnCard = null;
+        autoDrawDoneForTurn = false;
+        autoDrawInProgress = false;
         actionInFlight = false;
         
         // Show burned card if it was face-down
@@ -636,6 +638,8 @@ async function doReplace(cardIndex) {
         actionInFlight = false;
         actionPhase = null;
         drawnCard = null;
+        autoDrawDoneForTurn = false;
+        autoDrawInProgress = false;
         showToast(err.message, 'error');
         await loadGameState();
     }
@@ -651,12 +655,16 @@ async function doBurnReveal(revealIndex) {
         });
         actionPhase = null;
         drawnCard = null;
+        autoDrawDoneForTurn = false;
+        autoDrawInProgress = false;
         actionInFlight = false;
         await loadGameState();
     } catch (err) {
         actionInFlight = false;
         actionPhase = null;
         drawnCard = null;
+        autoDrawDoneForTurn = false;
+        autoDrawInProgress = false;
         showToast(err.message, 'error');
         await loadGameState();
     }

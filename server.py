@@ -20,12 +20,6 @@ def handle_exception(e):
     return jsonify({"error": "Internal server error"}), 500
 
 # ---------------------------------------------------------------------------
-# AI Opponent Constants
-# ---------------------------------------------------------------------------
-AI_USER_ID = -1
-AI_USERNAME = "SixJax Bot"
-
-# ---------------------------------------------------------------------------
 # Database Path — uses Railway Volume for persistence across deploys
 # ---------------------------------------------------------------------------
 # Railway Volumes provide persistent storage that survives redeploys.
@@ -152,10 +146,6 @@ def init_db():
     """)
     try:
         db.execute("ALTER TABLE game_hands ADD COLUMN pending_drawn_card TEXT")
-    except Exception:
-        pass
-    try:
-        db.execute("ALTER TABLE rooms ADD COLUMN is_ai_game INTEGER DEFAULT 0")
     except Exception:
         pass
     db.commit()
@@ -485,7 +475,6 @@ def finish_hand(db, hand_id):
 
         room = db.execute("SELECT * FROM rooms WHERE id=?", (hand['room_id'],)).fetchone()
         point_value = room['point_value'] if room else 1.0
-        is_ai = room and room['is_ai_game'] if room else False
 
         for winner in winners:
             total_won = sum(
@@ -493,11 +482,10 @@ def finish_hand(db, hand_id):
                 db.execute("SELECT total_points FROM scores WHERE game_hand_id=? AND winner_id=?",
                           (hand_id, winner['user_id'])).fetchall()
             )
-            if not is_ai and winner['user_id'] != AI_USER_ID:
-                db.execute("""
-                    UPDATE users SET total_points_won = total_points_won + ?,
-                    games_played = games_played + 1 WHERE id=?
-                """, (round(total_won * point_value), winner['user_id']))
+            db.execute("""
+                UPDATE users SET total_points_won = total_points_won + ?,
+                games_played = games_played + 1 WHERE id=?
+            """, (round(total_won * point_value), winner['user_id']))
 
         for loser in losers:
             total_lost = sum(
@@ -505,166 +493,16 @@ def finish_hand(db, hand_id):
                 db.execute("SELECT total_points FROM scores WHERE game_hand_id=? AND loser_id=?",
                           (hand_id, loser['user_id'])).fetchall()
             )
-            if not is_ai and loser['user_id'] != AI_USER_ID:
-                db.execute("""
-                    UPDATE users SET total_points_lost = total_points_lost + ?,
-                    games_played = games_played + 1 WHERE id=?
-                """, (round(total_lost * point_value), loser['user_id']))
+            db.execute("""
+                UPDATE users SET total_points_lost = total_points_lost + ?,
+                games_played = games_played + 1 WHERE id=?
+            """, (round(total_lost * point_value), loser['user_id']))
 
         winner_id = winners[0]['user_id'] if num_winners == 1 else None
         db.execute("UPDATE game_hands SET state='SCORING', winner_user_id=? WHERE id=?",
                   (winner_id, hand_id))
 
     db.commit()
-
-# ---------------------------------------------------------------------------
-# AI Opponent Logic
-# ---------------------------------------------------------------------------
-def ai_take_turn(db, hand_id, room_id, max_depth=30):
-    """Execute the AI's turn: draw a card, decide to replace or burn+reveal."""
-    if max_depth <= 0:
-        return
-
-    hand = db.execute("SELECT * FROM game_hands WHERE id=?", (hand_id,)).fetchone()
-    if not hand or hand['state'] not in ('PLAYING', 'FINAL_TURNS'):
-        return
-
-    # Verify it's actually the AI's turn
-    ai_rp = db.execute(
-        "SELECT seat_position FROM room_players WHERE room_id=? AND user_id=?",
-        (room_id, AI_USER_ID)
-    ).fetchone()
-    if not ai_rp:
-        return
-    ai_seat = ai_rp['seat_position']
-    if hand['current_turn_seat'] != ai_seat:
-        return
-
-    # Step 1: Draw a card (or use existing pending card)
-    if hand['pending_drawn_card']:
-        drawn_card = json.loads(hand['pending_drawn_card'])
-    else:
-        deck = json.loads(hand['deck'])
-        if len(deck) == 0:
-            finish_hand(db, hand_id)
-            return
-        drawn_card = deck.pop(0)
-        db.execute(
-            "UPDATE game_hands SET deck=?, pending_drawn_card=? WHERE id=?",
-            (json.dumps(deck), json.dumps(drawn_card), hand_id)
-        )
-        db.commit()
-        # Re-fetch hand after update
-        hand = db.execute("SELECT * FROM game_hands WHERE id=?", (hand_id,)).fetchone()
-
-    # Step 2: Get AI's current hand
-    ai_ph = db.execute(
-        "SELECT * FROM player_hands WHERE game_hand_id=? AND user_id=?",
-        (hand_id, AI_USER_ID)
-    ).fetchone()
-    if not ai_ph:
-        return
-
-    cards = json.loads(ai_ph['cards'])
-
-    # Step 3: Evaluate current best hand
-    # Need all 6 cards to be face-up for evaluation — use actual card values
-    # (face_up flag doesn't restrict AI evaluation, AI knows its own cards)
-    current_eval = best_hand_from_six(cards)  # (rank, tiebreakers, name, bonus)
-
-    # Step 4: Try each replacement and find the best
-    best_replacement_idx = None
-    best_replacement_eval = current_eval
-
-    drawn_card_full = {'suit': drawn_card['suit'], 'rank': drawn_card['rank'], 'face_up': True}
-
-    for i in range(6):
-        hypothetical = list(cards)  # shallow copy of list
-        hypothetical[i] = drawn_card_full
-        hyp_eval = best_hand_from_six(hypothetical)
-        # Compare: (rank, tiebreakers)
-        if (hyp_eval[0], hyp_eval[1]) > (best_replacement_eval[0], best_replacement_eval[1]):
-            best_replacement_eval = hyp_eval
-            best_replacement_idx = i
-
-    num_players = db.execute(
-        "SELECT COUNT(*) as c FROM player_hands WHERE game_hand_id=?",
-        (hand_id,)
-    ).fetchone()['c']
-
-    if best_replacement_idx is not None:
-        # Step 5a: Replace the card at best_replacement_idx
-        old_card = cards[best_replacement_idx]
-        cards[best_replacement_idx] = drawn_card_full
-
-        last_action = (f"{AI_USERNAME} drew {drawn_card['rank']}{suit_symbol(drawn_card['suit'])}"
-                       f" and replaced card {best_replacement_idx + 1}")
-        discard_card = {'suit': old_card['suit'], 'rank': old_card['rank']}
-
-        db.execute("UPDATE player_hands SET cards=? WHERE id=?",
-                   (json.dumps(cards), ai_ph['id']))
-        db.execute("""
-            UPDATE game_hands SET last_drawn_card=?, last_action=?, pending_drawn_card=NULL
-            WHERE id=?
-        """, (json.dumps(discard_card), last_action, hand_id))
-        db.commit()
-
-        advance_turn(db, hand_id, ai_seat, num_players, hand['state'])
-
-    else:
-        # Step 5b: Burn the drawn card and reveal a face-down card
-        # Find first face-down card
-        reveal_idx = None
-        for i, c in enumerate(cards):
-            if not c.get('face_up', False):
-                reveal_idx = i
-                break
-
-        last_action = (f"{AI_USERNAME} drew {drawn_card['rank']}{suit_symbol(drawn_card['suit'])}"
-                       f" and burned it")
-
-        if reveal_idx is not None:
-            cards[reveal_idx]['face_up'] = True
-            last_action += f", revealed {cards[reveal_idx]['rank']}{suit_symbol(cards[reveal_idx]['suit'])}"
-            db.execute("UPDATE player_hands SET cards=? WHERE id=?",
-                       (json.dumps(cards), ai_ph['id']))
-
-        db.execute("""
-            UPDATE game_hands SET last_drawn_card=?, last_action=?, pending_drawn_card=NULL
-            WHERE id=?
-        """, (json.dumps(drawn_card), last_action, hand_id))
-        db.commit()
-
-        advance_turn(db, hand_id, ai_seat, num_players, hand['state'])
-
-    # Step 6: Check if it's still the AI's turn after advancing (recursive)
-    hand_after = db.execute("SELECT * FROM game_hands WHERE id=?", (hand_id,)).fetchone()
-    if (hand_after and
-            hand_after['state'] in ('PLAYING', 'FINAL_TURNS') and
-            hand_after['current_turn_seat'] == ai_seat):
-        ai_take_turn(db, hand_id, room_id, max_depth=max_depth - 1)
-
-
-def maybe_ai_turn(db, room_id):
-    """If it's the AI's turn in this room, execute the AI's turn."""
-    room = db.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
-    if not room or not room['is_ai_game']:
-        return
-    hand = db.execute("""
-        SELECT * FROM game_hands WHERE room_id=?
-        ORDER BY hand_number DESC LIMIT 1
-    """, (room_id,)).fetchone()
-    if not hand or hand['state'] not in ('PLAYING', 'FINAL_TURNS'):
-        return
-    ai_rp = db.execute(
-        "SELECT seat_position FROM room_players WHERE room_id=? AND user_id=?",
-        (room_id, AI_USER_ID)
-    ).fetchone()
-    if not ai_rp:
-        return
-    if hand['current_turn_seat'] == ai_rp['seat_position']:
-        ai_take_turn(db, hand['id'], room_id, max_depth=30)
-
 
 # ---------------------------------------------------------------------------
 # Sanitize Game State
@@ -694,11 +532,8 @@ def sanitize_game_state(db, hand_id, user_id):
     # Calculate per-room session points (not lifetime)
     room_points = {}
     for uid in user_ids:
-        if uid == AI_USER_ID:
-            users[uid] = AI_USERNAME
-        else:
-            u = db.execute("SELECT username FROM users WHERE id=?", (uid,)).fetchone()
-            users[uid] = u['username'] if u else 'Unknown'
+        u = db.execute("SELECT username FROM users WHERE id=?", (uid,)).fetchone()
+        users[uid] = u['username'] if u else 'Unknown'
         # Sum points won in this room across all hands
         won = db.execute("""
             SELECT COALESCE(SUM(s.total_points), 0) as total
@@ -793,8 +628,7 @@ def sanitize_game_state(db, hand_id, user_id):
         'is_my_turn': hand['current_turn_seat'] == my_seat,
         'room_id': hand['room_id'],
         'ready_for_next': ready_for_next,
-        'pending_drawn_card': pending_card,
-        'is_ai_game': bool(room['is_ai_game']) if room else False
+        'pending_drawn_card': pending_card
     }
 
 # ---------------------------------------------------------------------------
@@ -914,7 +748,6 @@ def api_list_rooms():
         FROM rooms r
         LEFT JOIN users u ON r.host_user_id = u.id
         WHERE r.status = 'waiting'
-        AND (r.is_ai_game = 0 OR r.is_ai_game IS NULL)
         ORDER BY r.created_at DESC
     """).fetchall()
 
@@ -1225,28 +1058,6 @@ def api_game_state():
         return jsonify({"error": "No active hand"}), 404
 
     state = sanitize_game_state(db, hand['id'], uid)
-
-    # Safety net: if it's an AI game and it's the AI's turn, trigger AI
-    # (handles case where AI turn failed in a previous request)
-    if state and state.get('is_ai_game'):
-        ai_rp = db.execute(
-            "SELECT seat_position FROM room_players WHERE room_id=? AND user_id=?",
-            (rp['room_id'], AI_USER_ID)
-        ).fetchone()
-        current_hand = db.execute(
-            "SELECT current_turn_seat, state FROM game_hands WHERE id=?",
-            (hand['id'],)
-        ).fetchone()
-        if (ai_rp and current_hand and
-                current_hand['state'] in ('PLAYING', 'FINAL_TURNS') and
-                current_hand['current_turn_seat'] == ai_rp['seat_position']):
-            try:
-                maybe_ai_turn(db, rp['room_id'])
-                # Re-fetch state after AI turn
-                state = sanitize_game_state(db, hand['id'], uid)
-            except Exception as ai_err:
-                logger.error(f"AI turn recovery in poll: {ai_err}", exc_info=True)
-
     return jsonify(state)
 
 @app.route('/api/draw', methods=['POST'])
@@ -1410,13 +1221,6 @@ def api_action():
 
         advance_turn(db, hand['id'], rp['seat_position'], num_players, hand['state'])
 
-    # Trigger AI turn if needed (AI game) — wrapped in try/except
-    # so AI errors don't cause 500 on the human's action response
-    try:
-        maybe_ai_turn(db, rp['room_id'])
-    except Exception as ai_err:
-        logger.error(f"AI turn error after human action: {ai_err}", exc_info=True)
-
     return jsonify(response_data)
 
 @app.route('/api/next-hand', methods=['POST'])
@@ -1441,13 +1245,6 @@ def api_next_hand():
         INSERT OR IGNORE INTO next_hand_ready (room_id, user_id) VALUES (?, ?)
     """, (room_id, uid))
     db.commit()
-
-    # Auto-ready AI in AI games
-    ai_room = db.execute("SELECT is_ai_game FROM rooms WHERE id=?", (room_id,)).fetchone()
-    if ai_room and ai_room['is_ai_game']:
-        db.execute("INSERT OR IGNORE INTO next_hand_ready (room_id, user_id) VALUES (?, ?)",
-                   (room_id, AI_USER_ID))
-        db.commit()
 
     total = db.execute("SELECT COUNT(*) as c FROM room_players WHERE room_id=?",
                       (room_id,)).fetchone()['c']
@@ -1476,12 +1273,6 @@ def api_next_hand():
         new_hand_num = last_hand['hand_number'] + 1
         deal_hand(db, room_id, new_hand_num, new_button, player_seats)
         db.commit()
-
-        # Trigger AI if it's the AI's turn after dealing
-        try:
-            maybe_ai_turn(db, room_id)
-        except Exception as ai_err:
-            logger.error(f"AI turn error after next-hand: {ai_err}", exc_info=True)
 
     return jsonify({"ok": True, "all_ready": ready >= total})
 
@@ -1572,58 +1363,6 @@ def api_delete_account():
     db.execute("DELETE FROM users WHERE id=?", (uid,))
     db.commit()
     return jsonify({"ok": True})
-
-
-@app.route('/api/play-ai', methods=['POST'])
-def api_play_ai():
-    db = get_db()
-    uid = require_auth()
-    if uid is None:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    # Step 1: Leave any current waiting room
-    leave_current_room(db, uid)
-
-    # Step 2: Create a new room flagged as AI game
-    code = generate_room_code()
-    while db.execute("SELECT id FROM rooms WHERE room_code=?", (code,)).fetchone():
-        code = generate_room_code()
-
-    cur = db.execute("""
-        INSERT INTO rooms (room_code, host_user_id, point_value, max_players, is_ai_game)
-        VALUES (?, ?, ?, ?, ?)
-    """, (code, uid, 1.0, 2, 1))
-    room_id = cur.lastrowid
-
-    # Step 3: Add human as seat 1
-    db.execute("""
-        INSERT INTO room_players (room_id, user_id, seat_position, is_ready)
-        VALUES (?, ?, 1, 1)
-    """, (room_id, uid))
-
-    # Step 4: Add AI as seat 2
-    db.execute("""
-        INSERT INTO room_players (room_id, user_id, seat_position, is_ready)
-        VALUES (?, ?, 2, 1)
-    """, (room_id, AI_USER_ID))
-
-    # Step 5: Set room status to in_progress
-    db.execute("UPDATE rooms SET status='in_progress' WHERE id=?", (room_id,))
-    db.commit()
-
-    # Step 6: Deal the first hand
-    button_seat = random.randint(1, 2)
-    player_seats = [(uid, 1), (AI_USER_ID, 2)]
-    deal_hand(db, room_id, 1, button_seat, player_seats)
-    db.commit()
-
-    # Step 7: Check if AI goes first — if so, run AI turn
-    try:
-        maybe_ai_turn(db, room_id)
-    except Exception as ai_err:
-        logger.error(f"AI turn error on game start: {ai_err}", exc_info=True)
-
-    return jsonify({"room_id": room_id, "room_code": code}), 201
 
 
 # ---------------------------------------------------------------------------
